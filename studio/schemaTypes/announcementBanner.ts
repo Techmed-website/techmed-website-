@@ -14,7 +14,7 @@ export default defineType({
   fields: [
     defineField({
       name: 'active',
-      title: 'Active',
+      title: 'Show on techmedng.com',
       type: 'boolean',
       description: 'Turn off to hide the banner sitewide without deleting its content.',
       initialValue: false,
@@ -71,7 +71,15 @@ export default defineType({
       description: 'Higher numbers indicate higher priority.',
       initialValue: 0,
     }),
+    // KAIRO app (kairo.techmedng.com) reads these four fields live from Sanity, so changes show there within
+    // minutes without a rebuild. Separate from the website fields because the message differs per site
+    // (the website promotes KAIRO; KAIRO points back to TECHMED).
+    defineField({ name: 'kairoActive', title: 'Show on KAIRO app', type: 'boolean', fieldset: 'kairo', initialValue: false }),
+    defineField({ name: 'kairoMessage', title: 'KAIRO message', type: 'string', fieldset: 'kairo', validation: (Rule) => Rule.max(160) }),
+    defineField({ name: 'kairoCtaLabel', title: 'KAIRO CTA label', type: 'string', fieldset: 'kairo' }),
+    defineField({ name: 'kairoCtaUrl', title: 'KAIRO CTA link', type: 'string', fieldset: 'kairo', description: 'A full URL, e.g. https://techmedng.com' }),
   ],
+  fieldsets: [{ name: 'kairo', title: 'KAIRO app banner', options: { collapsible: true, collapsed: false } }],
   preview: {
     select: { active: 'active', headline: 'headline', message: 'message' },
     prepare({ active, headline, message }) {

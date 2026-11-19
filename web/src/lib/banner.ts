@@ -21,12 +21,18 @@ const BANNER_QUERY = `*[_id == "announcementBanner"][0]{
   message,
   "iconUrl": icon.asset->url,
   ctaLabel,
-  ctaUrl
+  ctaUrl,
+  startDate,
+  endDate
 }`;
 
 export async function getAnnouncementBanner(): Promise<AnnouncementBanner | null> {
-  const banner = await fetchSanity<Partial<AnnouncementBanner> | null>(BANNER_QUERY, null);
+  const banner = await fetchSanity<(Partial<AnnouncementBanner> & { startDate?: string; endDate?: string }) | null>(BANNER_QUERY, null);
   if (!banner || !banner.active || !banner.message || !banner.ctaLabel || !banner.ctaUrl) return null;
+  // Static site: checked at build time. The daily 05:50 rebuild (and every Studio publish) applies the window.
+  const now = Date.now();
+  if (banner.startDate && Date.parse(banner.startDate) > now) return null;
+  if (banner.endDate && Date.parse(banner.endDate) < now) return null;
   return {
     active: true,
     message: banner.message,
