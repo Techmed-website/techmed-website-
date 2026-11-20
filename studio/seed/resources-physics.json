@@ -1,0 +1,50 @@
+[
+  {
+    "_id": "resource-physics-calculation-workbook",
+    "_type": "resource",
+    "title": "TECHMED Physics Calculation Workbook",
+    "slug": { "_type": "slug", "current": "physics-calculation-workbook" },
+    "description": "Every Physics calculation JAMB has ever asked, taught step by step. Learn the formula, master the method, and solve with confidence on the basic JAMB calculator.",
+    "category": "Academic",
+    "subject": "Physics",
+    "deliveryFormat": "PDF eBook",
+    "type": "Guide",
+    "status": "paid",
+    "price": 3000,
+    "currency": "NGN",
+    "order": 2.8,
+    "actionLabel": "Unlock E-book"
+  },
+  {
+    "_id": "resource-physics-master-formula-bank",
+    "_type": "resource",
+    "title": "TECHMED Physics Master Formula Bank",
+    "slug": { "_type": "slug", "current": "physics-master-formula-bank" },
+    "description": "A revision guide, not a list of formulas. Each formula comes with what every symbol means and the exact clue that tells you to use it.",
+    "category": "Academic",
+    "subject": "Physics",
+    "deliveryFormat": "PDF eBook",
+    "type": "Guide",
+    "status": "paid",
+    "price": 1000,
+    "currency": "NGN",
+    "order": 2.9,
+    "actionLabel": "Unlock E-book"
+  },
+  {
+    "_id": "resource-physics-challenge",
+    "_type": "resource",
+    "title": "TECHMED Physics Challenge",
+    "slug": { "_type": "slug", "current": "physics-challenge" },
+    "description": "Timed JAMB-style Physics calculation practice on QuizBoot, built from the TECHMED Physics question banks.",
+    "category": "Quizzes",
+    "subject": "Physics",
+    "deliveryFormat": "Quiz Platform",
+    "type": "Quiz",
+    "status": "paid",
+    "price": 500,
+    "currency": "NGN",
+    "order": 2.95,
+    "actionLabel": "Start the Challenge"
+  }
+]

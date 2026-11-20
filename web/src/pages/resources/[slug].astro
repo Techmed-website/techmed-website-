@@ -13,6 +13,10 @@ export async function getStaticPaths() {
       related: resources
         .filter((r) => r.category === resource.category && r.slug !== resource.slug)
         .slice(0, 3),
+      linked: (resource.linkedResources ?? []).flatMap((l) => {
+        const target = resources.find((r) => r.slug === l.slug);
+        return target ? [{ slug: l.slug, title: target.title, note: l.note }] : [];
+      }),
     },
   }));
 }
@@ -20,9 +24,10 @@ export async function getStaticPaths() {
 interface Props {
   resource: Resource;
   related: Resource[];
+  linked: { slug: string; title: string; note: string }[];
 }
 
-const { resource, related } = Astro.props;
+const { resource, related, linked } = Astro.props;
 
 const pageUrl = new URL(`/resources/${resource.slug}`, Astro.site).toString();
 const currencyCode = resource.currency ?? 'NGN';
@@ -67,7 +72,7 @@ const jsonLd = [
                 '@type': 'Offer',
                 priceCurrency: currencyCode,
                 price: resource.price,
-                availability: 'https://schema.org/InStock',
+                availability: resource.comingSoon ? 'https://schema.org/PreOrder' : 'https://schema.org/InStock',
                 url: pageUrl,
               },
             }
@@ -84,7 +89,7 @@ const jsonLd = [
           '@type': 'Offer',
           priceCurrency: currencyCode,
           ...(resource.price ? { price: resource.price } : {}),
-          availability: 'https://schema.org/InStock',
+          availability: resource.comingSoon ? 'https://schema.org/PreOrder' : 'https://schema.org/InStock',
           url: pageUrl,
         },
       }
@@ -104,6 +109,6 @@ const jsonLd = [
   jsonLd={jsonLd}
   ogImage={ogImage}
 >
-  <ResourceDetail resource={resource} related={related} />
+  <ResourceDetail resource={resource} related={related} linked={linked} />
   <CheckoutModal />
 </BaseLayout>

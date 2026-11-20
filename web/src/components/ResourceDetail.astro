@@ -3,14 +3,16 @@
 // resource plus a small set of related resources (same category) for
 // internal linking — real records only, never invented "related" items.
 import type { Resource } from '../lib/resources';
-import { resourceIcon, priceDisplay, isPurchasable, hasReaderPreview, opensInReader } from '../lib/resources';
+import { resourceIcon, priceDisplay, isPurchasable, hasReaderPreview, opensInReader, externalBuyUrl } from '../lib/resources';
 
 interface Props {
   resource: Resource;
   related?: Resource[];
+  /** Resolved linkedResources (title looked up from the catalogue). */
+  linked?: { slug: string; title: string; note: string }[];
 }
 
-const { resource, related = [] } = Astro.props;
+const { resource, related = [], linked = [] } = Astro.props;
 
 const price = priceDisplay(resource);
 const priceLabel = price.label;
@@ -100,6 +102,10 @@ const primaryIsExternal = Boolean(resource.externalUrl) || Boolean(resource.acce
             >
               Unlock with Paystack / Transfer
             </button>
+          ) : externalBuyUrl(resource) ? (
+            <a class="btn-primary" href={externalBuyUrl(resource)} target="_blank" rel="noopener">
+              {resource.actionLabel} on QuizBoot &rarr;
+            </a>
           ) : resource.whatsappUrl ? (
             <a class="btn-primary" href={resource.whatsappUrl} target="_blank" rel="noopener">
               {resource.actionLabel}
@@ -178,6 +184,27 @@ const primaryIsExternal = Boolean(resource.externalUrl) || Boolean(resource.acce
       <section class="reveal">
         <h2>Who It's For</h2>
         <p>{resource.whoItsFor}</p>
+      </section>
+    )}
+
+    {linked.length > 0 && (
+      <section class="reveal">
+        <h2>Linked Resources</h2>
+        <ul>
+          {linked.map((l) => (
+            <li><a href={`/resources/${l.slug}`}><strong>{l.title}</strong></a>: {l.note}</li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {resource.kairoUrl && (
+      <section class="reveal">
+        <h2>Practise on KAIRO</h2>
+        <p>
+          Every chapter links to its topic page on <a href={resource.kairoUrl} target="_blank" rel="noopener">KAIRO</a>,
+          where you can practise topic by topic and year by year.
+        </p>
       </section>
     )}
   </div>

@@ -47,9 +47,12 @@ interface Props {
 
 const { resource } = Astro.props;
 
-// The original booster systems carry a faint TECHMED mark. New Think Smart
-// e-books are watermarked by the author inside the PDF itself.
+// The original booster systems carry a faint TECHMED mark on every page.
+// Books with watermarkFromPage (e.g. the Physics books) get it from that page
+// on (page 1, the cover, stays clean). Other Think Smart e-books are
+// watermarked by the author inside the PDF itself.
 const WATERMARKED = ['chemistry-booster', 'biology-booster', 'physics-booster'];
+const watermarkFrom = WATERMARKED.includes(resource.id) ? 1 : (resource.watermarkFromPage ?? 0);
 
 const isPublicPdf = resource.status === 'free' && !!resource.accessUrl && resource.accessUrl.endsWith('.pdf');
 const config = {
@@ -60,7 +63,8 @@ const config = {
   publicPdfUrl: isPublicPdf ? resource.accessUrl : null,
   previewPdfUrl: resource.previewPdfUrl ?? null,
   isReadable: isPublicPdf || resource.deliveryFormat === 'PDF eBook',
-  watermark: WATERMARKED.includes(resource.id),
+  watermark: watermarkFrom > 0,
+  watermarkFrom,
   detailUrl: `/resources/${resource.slug}`,
   cover: resource.primaryImage ?? null,
 };
@@ -197,6 +201,7 @@ const config = {
         previewPdfUrl: string | null;
         isReadable: boolean;
         watermark: boolean;
+        watermarkFrom: number;
         detailUrl: string;
         cover: string | null;
       };
@@ -377,7 +382,7 @@ const config = {
           return; // cancelled (scrolled away or zoom changed)
         }
         if (rendered.get(n)?.canvas !== canvas) return;
-        if (cfg.watermark && logo?.complete && logo.naturalWidth) {
+        if (cfg.watermark && n >= cfg.watermarkFrom && logo?.complete && logo.naturalWidth) {
           const w = canvas.width * 0.28;
           const h = (logo.naturalHeight / logo.naturalWidth) * w;
           ctx.globalAlpha = 0.05;
