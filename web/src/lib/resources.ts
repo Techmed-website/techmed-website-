@@ -638,6 +638,7 @@ export const FALLBACK_RESOURCES: Resource[] = [
   // the Workbook includes the Formula Bank and the Physics Challenge; Mastery
   // and Ultimate include all three.
   // Switches: comingSoon (not on sale yet), previewReady (free preview on/off).
+  // A file with another name is found through products.metadata.file_path.
   // ---------------------------------------------------------------------
   {
     id: 'physics-calculation-workbook',
@@ -647,9 +648,8 @@ export const FALLBACK_RESOURCES: Resource[] = [
     // physics-calculation-workbook-free-preview.pdf to paid-resources and set true.
     previewReady: false,
     previewPdfUrl: 'https://unbgborbhxzsotaieiun.supabase.co/functions/v1/reader-file?resource=physics-calculation-workbook&mode=preview',
-    // On sale once physics-calculation-workbook.pdf is in paid-resources
-    // (then set products.is_active = true and remove this line).
-    comingSoon: true,
+    // File: paid-resources/TECHMED_Physics_Calculation_Workbook_COMPLETE.pdf
+    // (products.metadata.file_path). On sale since 20 Nov 2026.
     title: 'TECHMED Physics Calculation Workbook',
     tagline: 'Understand the Formula. Master the Method. Solve with Confidence.',
     description:
