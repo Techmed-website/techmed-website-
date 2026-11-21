@@ -644,10 +644,8 @@ export const FALLBACK_RESOURCES: Resource[] = [
     id: 'physics-calculation-workbook',
     slug: 'physics-calculation-workbook',
     codeManaged: true,
-    // Free preview slot: not decided yet. To switch on, upload
-    // physics-calculation-workbook-free-preview.pdf to paid-resources and set true.
+    // No free preview (decided Nov 2026).
     previewReady: false,
-    previewPdfUrl: 'https://unbgborbhxzsotaieiun.supabase.co/functions/v1/reader-file?resource=physics-calculation-workbook&mode=preview',
     // File: paid-resources/TECHMED_Physics_Calculation_Workbook_COMPLETE.pdf
     // (products.metadata.file_path). On sale since 20 Nov 2026.
     title: 'TECHMED Physics Calculation Workbook',
