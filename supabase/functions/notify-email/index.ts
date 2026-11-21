@@ -11,7 +11,7 @@ const REPLY_TO = "admissions@techmedng.com";
 const SITE = "https://techmedng.com";
 const WHATSAPP = "https://wa.me/2347044255045";
 const CHANNEL = "https://whatsapp.com/channel/0029Vb8nzXH545v4f8EF103D";
-const READER_BOOKS = ["mole-concept-cure", "organic-chemistry-mastery"];
+const READER_BOOKS = ["mole-concept-cure", "organic-chemistry-mastery", "physics-calculation-workbook", "physics-master-formula-bank"];
 const PLAN_NAME: Record<string, string> = { "cohort-core": "Core", "cohort-mastery": "Mastery", "cohort-ultimate": "Ultimate" };
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {

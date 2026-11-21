@@ -127,6 +127,14 @@ export interface Resource {
     chapters?: number;
     author?: string;
   };
+  /** Other TECHMED resources this one links to (shown on the detail page). */
+  linkedResources?: { slug: string; note: string }[];
+  /** KAIRO practice link (topic-by-topic and year-by-year practice). */
+  kairoUrl?: string;
+  /** Sold on another platform (e.g. QuizBoot): the buy button opens externalUrl instead of TECHMED checkout. */
+  soldExternally?: boolean;
+  /** Reader: draw the faint centred TECHMED logo from this page onward. */
+  watermarkFromPage?: number;
   isBundle?: boolean;
   bundleItemIds?: string[];
   bundleItems?: {
@@ -622,6 +630,170 @@ export const FALLBACK_RESOURCES: Resource[] = [
     whoItsFor:
       'Candidates who struggle with chemical calculations or find mole-concept questions difficult to approach. Ideal for students preparing for JAMB UTME, WAEC and NECO who want to understand the principles behind the calculations, develop a reliable problem-solving method and practise with examination-standard questions.',
   },
+  // ---------------------------------------------------------------------
+  // TECHMED Physics (Think Smart Series, First Edition 2027).
+  // Product ids = slugs = file names in the private paid-resources bucket
+  // (<id>.pdf, optional <id>-free-preview.pdf). Access rules live in
+  // public.products (supabase/migrations/20261120000001_physics_library.sql):
+  // the Workbook includes the Formula Bank and the Physics Challenge; Mastery
+  // and Ultimate include all three.
+  // Switches: comingSoon (not on sale yet), previewReady (free preview on/off).
+  // A file with another name is found through products.metadata.file_path.
+  // ---------------------------------------------------------------------
+  {
+    id: 'physics-calculation-workbook',
+    slug: 'physics-calculation-workbook',
+    codeManaged: true,
+    // No free preview (decided Nov 2026).
+    previewReady: false,
+    // File: paid-resources/TECHMED_Physics_Calculation_Workbook_COMPLETE.pdf
+    // (products.metadata.file_path). On sale since 20 Nov 2026.
+    title: 'TECHMED Physics Calculation Workbook',
+    tagline: 'Understand the Formula. Master the Method. Solve with Confidence.',
+    description:
+      'Every Physics calculation JAMB has ever asked, taught step by step. Learn the formula, master the method, and solve with confidence on the basic JAMB calculator.',
+    category: 'Academic',
+    subject: 'Physics',
+    type: 'Guide',
+    status: 'paid',
+    order: 2.8,
+    price: 3000,
+    currency: 'NGN',
+    thumbnail: ICONS.bolt,
+    primaryImage: '/images/resources/physics-calculation-workbook-cover-600.jpg',
+    ogImage: '/images/resources/physics-calculation-workbook-og.jpg',
+    featured: true,
+    tags: ['Physics', 'Calculations', 'JAMB Past Questions', 'Think Smart Series', 'Mastery Included'],
+    actionLabel: 'Unlock E-book',
+    deliveryFormat: 'PDF eBook',
+    isAvailableStandalone: true,
+    watermarkFromPage: 2,
+    kairoUrl: 'https://kairo.techmedng.com',
+    book: {
+      series: 'Think Smart Series',
+      edition: 'First Edition 2027',
+      pages: 'About 1,100',
+      chapters: 25,
+      author: 'TECHMED',
+    },
+    bonus: {
+      label: '+ Master Formula Bank & Physics Challenge',
+      title: 'Included: Master Formula Bank and the Physics Challenge',
+      text: 'The Master Formula Bank is inside the book as back matter, so you never pay for it separately. Workbook owners also get private access to the TECHMED Physics Challenge on QuizBoot from their Library.',
+    },
+    inclusions: {
+      core: '20% off for active TECHMED Core students (₦2,400)',
+      mastery: true,
+      ultimate: true,
+      masteryText: 'Free, included in your plan. No separate purchase required.',
+      note: 'Read online in the TECHMED Library. Read-only: no downloads.',
+    },
+    linkedResources: [
+      { slug: 'physics-master-formula-bank', note: 'Already inside the Workbook as back matter. Do not buy it separately.' },
+      { slug: 'physics-challenge', note: 'Workbook owners get the private link in their Library.' },
+    ],
+    whatsIncluded: [
+      'Every calculation question in TECHMED’s JAMB Physics banks (1978 to 2025), fully solved, including diagram questions redrawn in TECHMED style.',
+      'Built for the basic JAMB on-screen calculator (+ − × ÷ √ only).',
+      'The Six-Step Method: Decode, Identify, Convert, Select, Solve, Verify.',
+      'Worked examples, “Ideas Check” concept sets and a Formula Finder in every chapter.',
+      'UTME trap alerts, with answers at the end of every chapter.',
+      '25 chapters, plus the complete Master Formula Bank as back matter.',
+      'Each chapter links to its topic page on KAIRO for topic-by-topic and year-by-year practice.',
+      'Private access to the TECHMED Physics Challenge on QuizBoot.',
+    ],
+    whoItsFor:
+      'JAMB UTME candidates (and WAEC and NECO candidates) who lose marks on Physics calculations: those who are not sure which formula a question needs, forget to convert units, or run out of time on the basic JAMB calculator.',
+  },
+  {
+    id: 'physics-master-formula-bank',
+    slug: 'physics-master-formula-bank',
+    codeManaged: true,
+    title: 'TECHMED Physics Master Formula Bank',
+    tagline: 'Every UTME Physics formula, what each symbol means, and how to recognise the question that needs it.',
+    description:
+      'A revision guide, not a list of formulas. Each formula comes with what every symbol means and the exact clue that tells you to use it.',
+    category: 'Academic',
+    subject: 'Physics',
+    type: 'Guide',
+    status: 'paid',
+    order: 2.9,
+    price: 1000,
+    currency: 'NGN',
+    thumbnail: ICONS.bolt,
+    primaryImage: '/images/resources/physics-master-formula-bank-cover-600.jpg',
+    ogImage: '/images/resources/physics-master-formula-bank-og.jpg',
+    tags: ['Physics', 'Formulas', 'Revision', 'Think Smart Series', 'Mastery Included'],
+    actionLabel: 'Unlock E-book',
+    deliveryFormat: 'PDF eBook',
+    isAvailableStandalone: true,
+    watermarkFromPage: 2,
+    book: {
+      series: 'Think Smart Series',
+      edition: 'First Edition 2027',
+      pages: '25',
+      author: 'TECHMED',
+    },
+    inclusions: {
+      mastery: true,
+      ultimate: true,
+      masteryText: 'Included in your plan. No separate purchase required.',
+      note: 'Already own the Physics Calculation Workbook? The Formula Bank is inside it, and it is in your Library at no extra cost.',
+    },
+    linkedResources: [
+      { slug: 'physics-calculation-workbook', note: 'Ready for the full method? The Workbook teaches every JAMB Physics calculation step by step, and this Formula Bank is inside it.' },
+    ],
+    whatsIncluded: [
+      'All 25 UTME Physics topics, each with a formula table.',
+      'For every formula: “Where” (what each symbol means and its unit) and “Use when” (the clue in a question that calls for the formula).',
+      'Yellow “Remember” rows that warn about the usual traps, such as “from rest means u = 0” and “add 273 to °C for gas laws”.',
+      'A page of physical constants and unit prefixes.',
+      'Every formula works on the basic JAMB calculator (+ − × ÷ √).',
+    ],
+    whoItsFor:
+      'Students who know the formulas but cannot tell which one a question wants, and students who want a short Physics revision guide but cannot afford the full Workbook yet.',
+  },
+  {
+    id: 'physics-challenge',
+    slug: 'physics-challenge',
+    codeManaged: true,
+    // Not created on QuizBoot yet. When it is: put the PUBLIC paid QuizBoot link
+    // in externalUrl, add a Sanity Quiz (category "Book bonus", book = Physics
+    // Calculation Workbook) with the PRIVATE link sealed, and remove comingSoon.
+    comingSoon: true,
+    title: 'TECHMED Physics Challenge',
+    description:
+      'Timed JAMB-style Physics calculation practice on QuizBoot, built from the TECHMED Physics question banks.',
+    category: 'Quizzes',
+    subject: 'Physics',
+    type: 'Quiz',
+    status: 'paid',
+    order: 2.95,
+    price: 500,
+    currency: 'NGN',
+    thumbnail: ICONS.quiz,
+    tags: ['Physics', 'Quiz', 'QuizBoot', 'Mastery Included'],
+    actionLabel: 'Start the Challenge',
+    deliveryFormat: 'Quiz Platform',
+    isAvailableStandalone: true,
+    notInReader: true,
+    // Everyone else buys the public paid copy on QuizBoot (set externalUrl).
+    soldExternally: true,
+    inclusions: {
+      mastery: true,
+      ultimate: true,
+      masteryText: 'Included in your plan: open it from the Quiz Hub in your dashboard.',
+      note: 'Own the Physics Calculation Workbook? Your private link is in your Library and Quiz Hub. Do not buy it again.',
+    },
+    linkedResources: [
+      { slug: 'physics-calculation-workbook', note: 'Learn the method first. Workbook owners get the Challenge included.' },
+    ],
+    whatsIncluded: [
+      'JAMB-style Physics calculation questions on QuizBoot.',
+      'Instant marking on QuizBoot.',
+    ],
+    whoItsFor: 'Students who want to test their Physics calculation speed and accuracy under exam conditions.',
+  },
   {
     id: 'physics-mechanics-electricity',
     slug: 'physics-mechanics-electricity-manual',
@@ -808,6 +980,7 @@ export function isPurchasable(resource: Resource): boolean {
   return (
     resource.status === 'paid' &&
     !resource.comingSoon &&
+    !resource.soldExternally &&
     typeof resource.price === 'number' &&
     resource.price > 0 &&
     resource.isAvailableStandalone !== false
@@ -823,6 +996,12 @@ export function opensInReader(resource: Resource): boolean {
 
 export function readerUrl(resource: Resource): string {
   return `/library/read/${resource.id}/`;
+}
+
+/** Sold on a partner platform, with a public link that is ready to share. */
+export function externalBuyUrl(resource: Resource): string | undefined {
+  if (resource.status !== 'paid' || !resource.soldExternally || resource.comingSoon) return undefined;
+  return resource.externalUrl;
 }
 
 export function hasReaderPreview(resource: Resource): boolean {

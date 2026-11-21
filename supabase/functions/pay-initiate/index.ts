@@ -14,6 +14,9 @@
 //   grant) are told so instead of being charged. Ownership is checked per
 //   resource with resource_access_for(), so Mastery/Ultimate students can
 //   still buy items their plan does NOT include.
+// - Nov 2026: TECHMED Physics (physics-calculation-workbook, which includes
+//   physics-master-formula-bank). products.metadata.plan_discount = false
+//   turns the plan discount off for one product (Formula Bank: ₦1,000 for all).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -25,6 +28,8 @@ const PRODUCTS: Record<string, CatalogueItem> = {
   // Think Smart Series e-books (₦5,000 standard, ₦3,000 early bird; no end date set)
   "organic-chemistry-mastery": { name: "Organic Chemistry Mastery", amount: 3000, requiresUniversity: false },
   "mole-concept-cure": { name: "The Mole Concept Cure", amount: 3000, requiresUniversity: false },
+  "physics-calculation-workbook": { name: "TECHMED Physics Calculation Workbook", amount: 3000, requiresUniversity: false },
+  "physics-master-formula-bank": { name: "TECHMED Physics Master Formula Bank", amount: 1000, requiresUniversity: false },
 
   // Standalone Science Boosters
   "chemistry-booster": { name: "Chemistry Booster System", amount: 5000, requiresUniversity: false },
@@ -180,10 +185,11 @@ Deno.serve(async (req) => {
 
   // Resolve product: cohort plans from PRODUCTS; resources/bundles from public.products.
   let product: CatalogueItem | undefined = PRODUCTS[cleanProductId];
+  let planDiscountAllowed = true;
   if (!product?.isCohort) {
     const { data: row, error: rowErr } = await supabase
       .from("products")
-      .select("id, title, price_ngn, product_type, requires_university, is_active")
+      .select("id, title, price_ngn, product_type, requires_university, is_active, metadata")
       .eq("id", cleanProductId)
       .maybeSingle();
     if (rowErr) console.warn("Catalogue lookup failed; using fallback list:", rowErr.message);
@@ -193,6 +199,7 @@ Deno.serve(async (req) => {
         amount: Number(row.price_ngn),
         requiresUniversity: !!row.requires_university,
       };
+      planDiscountAllowed = (row.metadata as Record<string, unknown> | null)?.plan_discount !== false;
     } else if (row && !row.is_active) {
       return jsonResponse({ success: false, message: "This resource is not currently available for purchase." }, 400);
     }
@@ -293,7 +300,7 @@ Deno.serve(async (req) => {
         .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
       if (plansErr) console.warn("Plan lookup failed:", plansErr.message);
 
-      if ((plans ?? []).length > 0) {
+      if (planDiscountAllowed && (plans ?? []).length > 0) {
         planDiscountApplied = true;
         planDiscountAmount = Math.round(product.amount * PLAN_DISCOUNT_PERCENT);
         validatedAmount = product.amount - planDiscountAmount;
