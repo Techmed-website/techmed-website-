@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient, type User, type Session } from '@supabase/supabase-js';
+import { sharedSessionStorage, watchSharedSession } from './sharedSession';
 
 // Browser-safe Supabase configuration using public anon key only.
 // Never import or expose SUPABASE_SERVICE_ROLE_KEY or private secrets.
@@ -32,8 +33,11 @@ export function getSupabase(): SupabaseClient {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        // Session lives in a .techmedng.com cookie so the website and KAIRO share one login (see sharedSession.ts).
+        storage: sharedSessionStorage,
       },
     });
+    watchSharedSession(`sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`);
   }
   return clientInstance;
 }

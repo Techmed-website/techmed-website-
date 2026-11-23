@@ -4,6 +4,8 @@
 //   POST {type:"welcome", email, name?}  -> welcome email + add to Resend contacts
 //   POST {type:"receipt", reference}     -> TECHMED receipt with the next step
 //   POST {type:"renewals"}               -> 7 and 3 days before a plan ends, each grace day
+//   POST {type:"admin_alert", subject, message} -> plain alert to TECHMED staff (app_secrets 'admin_alert_email',
+//                                           else admissions@); e.g. the 05:00 Daily Builder Quiz watchdog
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const FROM = "TECHMED <hello@auth.techmedng.com>";
@@ -172,6 +174,12 @@ async function renewals() {
   return { sent };
 }
 
+async function adminAlert(subject: string, message: string) {
+  const { data: to } = await admin.from("app_secrets").select("value").eq("name", "admin_alert_email").maybeSingle();
+  await send(to?.value || REPLY_TO, `[TECHMED alert] ${subject.slice(0, 120)}`,
+    shell(esc(subject.slice(0, 120)), `<p style="white-space:pre-wrap;line-height:1.5">${esc(message.slice(0, 4000))}</p>`));
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const { data: secret } = await admin.from("app_secrets").select("value").eq("name", "notify_hook_secret").maybeSingle();
@@ -185,6 +193,10 @@ Deno.serve(async (req) => {
     }
     if (body.type === "receipt" && typeof body.reference === "string") return json({ ok: true, ...(await receipt(body.reference)) });
     if (body.type === "renewals") return json({ ok: true, ...(await renewals()) });
+    if (body.type === "admin_alert" && typeof body.subject === "string" && typeof body.message === "string") {
+      await adminAlert(body.subject, body.message);
+      return json({ ok: true });
+    }
     return json({ error: "bad_request" }, 400);
   } catch (err) {
     console.error("[notify-email]", err);

@@ -34,14 +34,16 @@ export interface PublicQuiz {
   createdAt: string;
 }
 
-const QUERY = `*[_type == "quiz" && !(_id in path("drafts.**")) && category != "hidden" && status in ["Live", "Closed"] && defined(slug.current)]{
+const FILTER = `_type == "quiz" && !(_id in path("drafts.**")) && category != "hidden" && status in ["Live", "Closed"] && defined(slug.current)`;
+const PROJECTION = `{
   "id": _id, "slug": slug.current, title, shortDescription, subject, topic, programme,
   questionCount, durationMinutes, "coverImage": coverImage.asset->url, featured, category, minimumPlan,
   "bookSlug": linkedResource->slug.current, "bookTitle": linkedResource->title, platform, status,
   comingSoon, opensAt, closesAt, comingSoonText,
   "quizUrl": select(category == "free" => quizUrl, null),
   "createdAt": _createdAt
-} | order(_createdAt desc)`;
+}`;
+const QUERY = `*[${FILTER}]${PROJECTION} | order(_createdAt desc)`;
 
 export async function getPublicQuizzes(): Promise<PublicQuiz[]> {
   const quizzes = await fetchSanity<PublicQuiz[]>(QUERY, []);
@@ -59,4 +61,25 @@ export function accessLabel(q: Pick<PublicQuiz, 'category' | 'minimumPlan' | 'bo
     return p === 'ultimate' ? 'Ultimate students' : p === 'mastery' ? 'Mastery & Ultimate students' : 'Core, Mastery & Ultimate students';
   }
   return 'TECHMED programme';
+}
+
+/**
+ * One quiz by slug, read at request time (the /quizzes/[slug] page is rendered on demand so KAIRO's daily quizzes
+ * work the moment they are published). Same public fields as above; the dataset is public, so no token is used.
+ */
+export async function getSanityQuizBySlug(slug: string): Promise<PublicQuiz | null> {
+  const query = `*[${FILTER} && slug.current == $slug][0]${PROJECTION}`;
+  const url = `https://kxoz58eb.apicdn.sanity.io/v2024-01-01/data/query/production?query=${encodeURIComponent(query)}&$slug=${encodeURIComponent(JSON.stringify(slug))}`;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok) return null;
+    const q = ((await res.json()) as { result: PublicQuiz | null }).result;
+    return q && q.slug && !/^test\b/i.test(q.title) ? q : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
