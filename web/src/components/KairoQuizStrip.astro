@@ -1,0 +1,145 @@
+---
+// Today's Daily Builder Quiz, recent dailies and live challenges, straight from KAIRO (cbt.public_quizzes).
+// Loaded in the browser so the static /quizzes page always shows today's quiz without a rebuild.
+// Hidden quietly if KAIRO cannot be reached; the Sanity quiz hub below still works on its own.
+---
+
+<section class="kqs" data-kqs hidden aria-labelledby="kqs-h">
+  <h2 id="kqs-h" class="kqs-h">Today on KAIRO</h2>
+  <a class="kqs-today" data-today href="#">
+    <span class="kqs-badge" data-today-badge>DAILY BUILDER QUIZ</span>
+    <span class="kqs-title" data-today-title></span>
+    <span class="kqs-sub" data-today-sub></span>
+    <span class="kqs-meta" data-today-meta></span>
+    <span class="kqs-cta">Open today’s quiz →</span>
+  </a>
+  <div class="kqs-group" data-challenges-wrap hidden>
+    <h3>Live challenges</h3>
+    <ul class="kqs-list" data-challenges></ul>
+  </div>
+  <div class="kqs-group" data-recent-wrap hidden>
+    <h3>Recent Daily Builder quizzes</h3>
+    <ul class="kqs-list" data-recent></ul>
+  </div>
+</section>
+
+<script>
+  import { getKairoQuizzes, displayTitle, minutes, type KairoQuiz } from '../lib/kairoQuizzes';
+
+  const root = document.querySelector('[data-kqs]') as HTMLElement | null;
+  const esc = (s: unknown) =>
+    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+  const href = (q: KairoQuiz) => `/quizzes/${encodeURIComponent(q.slug)}/`;
+  const item = (q: KairoQuiz) => {
+    const t = displayTitle(q);
+    const who = q.players ? ` · ${q.players} played` : '';
+    return `<li><a href="${href(q)}"><b>${esc(t.heading)}</b>${t.sub ? `<span>${esc(t.sub)}</span>` : ''}<em>${q.question_count} questions · ${esc(minutes(q.time_limit_sec) ?? '')}${who}${q.has_passcode ? ' · private' : ''}</em></a></li>`;
+  };
+
+  if (root) {
+    getKairoQuizzes().then((all) => {
+      const dailies = all.filter((q) => q.type === 'daily_quiz' && q.status !== 'scheduled');
+      const today = dailies.find((q) => q.featured) ?? dailies[0];
+      const challenges = all.filter((q) => q.type === 'challenge' && q.status === 'live');
+      if (!today && !challenges.length) return;
+
+      const card = root.querySelector('[data-today]') as HTMLAnchorElement;
+      if (today) {
+        const t = displayTitle(today);
+        card.href = href(today);
+        (root.querySelector('[data-today-title]') as HTMLElement).textContent = t.heading;
+        (root.querySelector('[data-today-sub]') as HTMLElement).textContent = t.sub ?? '';
+        (root.querySelector('[data-today-meta]') as HTMLElement).textContent =
+          `${today.question_count} questions · ${minutes(today.time_limit_sec) ?? ''}${today.players ? ` · ${today.players} Builders played` : ''}`;
+      } else card.hidden = true;
+
+      if (challenges.length) {
+        (root.querySelector('[data-challenges]') as HTMLElement).innerHTML = challenges.map(item).join('');
+        (root.querySelector('[data-challenges-wrap]') as HTMLElement).hidden = false;
+      }
+      const recent = dailies.filter((q) => q !== today).slice(0, 6);
+      if (recent.length) {
+        (root.querySelector('[data-recent]') as HTMLElement).innerHTML = recent.map(item).join('');
+        (root.querySelector('[data-recent-wrap]') as HTMLElement).hidden = false;
+      }
+      root.hidden = false;
+    }).catch(() => { /* KAIRO unreachable: leave the section hidden */ });
+  }
+</script>
+
+<style>
+  .kqs {
+    margin: 8px 0 32px;
+  }
+  .kqs-h {
+    margin: 0 0 12px;
+    font-size: 1.15rem;
+  }
+  .kqs-today {
+    display: grid;
+    gap: 6px;
+    padding: 20px;
+    border-radius: 16px;
+    text-decoration: none;
+    color: #f8f9fa;
+    background: radial-gradient(120% 140% at 90% 0%, #09476e 0%, #012748 65%);
+    box-shadow: 0 10px 28px rgba(1, 39, 72, 0.25);
+  }
+  .kqs-badge {
+    font: 800 0.7rem 'Montserrat', sans-serif;
+    letter-spacing: 0.12em;
+    color: #c9a227;
+  }
+  .kqs-title {
+    font: 800 clamp(1.4rem, 5vw, 1.9rem) / 1.15 'Montserrat', sans-serif;
+  }
+  .kqs-sub {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #98b0c4;
+  }
+  .kqs-meta {
+    font-size: 0.88rem;
+    color: #98b0c4;
+  }
+  .kqs-cta {
+    justify-self: start;
+    margin-top: 6px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: #c9a227;
+    color: #012748;
+    font: 800 0.95rem 'Montserrat', sans-serif;
+  }
+  .kqs-group h3 {
+    margin: 22px 0 8px;
+    font-size: 1rem;
+  }
+  .kqs-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .kqs-list :global(a) {
+    display: grid;
+    gap: 2px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .kqs-list :global(span) {
+    color: var(--text-light);
+    font-size: 0.9rem;
+  }
+  .kqs-list :global(em) {
+    font-style: normal;
+    font-size: 0.8rem;
+    color: var(--text-light);
+  }
+</style>

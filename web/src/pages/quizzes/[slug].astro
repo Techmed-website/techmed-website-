@@ -1,112 +1,248 @@
 ---
+// The shop window for one quiz. Rendered on demand (not at build time) so a KAIRO daily quiz published at 04:30 has
+// a working page and a proper WhatsApp link preview immediately, with no rebuild. KAIRO quizzes come first; older
+// quizzes still kept in Sanity (QuizBoot, class quizzes, book question banks) keep working as before.
+// No quiz is ever taken here: the Start button goes straight into the quiz on KAIRO.
+export const prerender = false;
+
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getPublicQuizzes, accessLabel, type PublicQuiz } from '../../lib/quizzes';
+import { getSanityQuizBySlug, accessLabel, type PublicQuiz } from '../../lib/quizzes';
+import {
+  getKairoQuiz, getKairoBoard, quizState, ogImageFor, displayTitle, startUrl, minutes, clock,
+  type KairoQuiz, type BoardRow,
+} from '../../lib/kairoQuizzes';
 
-export async function getStaticPaths() {
-  const quizzes = await getPublicQuizzes();
-  return quizzes.map((quiz) => ({ params: { slug: quiz.slug }, props: { quiz } }));
+const slug = (Astro.params.slug ?? '').toLowerCase();
+let kq: KairoQuiz | null = null;
+let board: BoardRow[] = [];
+let sq: PublicQuiz | null = null;
+if (/^[a-z0-9-]{1,96}$/.test(slug)) {
+  try { kq = await getKairoQuiz(slug); } catch { kq = null; }
+  if (kq) {
+    try { board = await getKairoBoard(kq.id, 10); } catch { board = []; }
+  } else {
+    sq = await getSanityQuizBySlug(slug);
+  }
 }
+if (!kq && !sq) Astro.response.status = 404;
+// Short shared cache: fresh enough for a live leaderboard, cheap under a WhatsApp rush.
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60');
 
-interface Props {
-  quiz: PublicQuiz;
-}
-const { quiz } = Astro.props;
-const pageUrl = new URL(`/quizzes/${quiz.slug}/`, Astro.site).toString();
-const facts = [
-  quiz.subject,
-  quiz.programme,
-  quiz.questionCount ? `${quiz.questionCount} questions` : null,
-  quiz.durationMinutes ? `${quiz.durationMinutes} minutes` : null,
-  accessLabel(quiz),
-].filter(Boolean) as string[];
-const description =
-  quiz.shortDescription ||
-  `${quiz.title}: a TECHMED ${quiz.subject && quiz.subject !== 'Mixed / All' ? quiz.subject + ' ' : ''}quiz for UTME 2027 candidates.`;
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Quiz',
-    name: quiz.title,
-    description,
-    url: pageUrl,
-    educationalLevel: 'Senior secondary / UTME',
-    ...(quiz.subject && quiz.subject !== 'Mixed / All' ? { about: quiz.subject } : {}),
-    provider: { '@type': 'Organization', name: 'TECHMED', url: Astro.site?.toString() },
-    isAccessibleForFree: quiz.category === 'free',
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: Astro.site?.toString() },
-      { '@type': 'ListItem', position: 2, name: 'Quizzes', item: new URL('/quizzes/', Astro.site).toString() },
-      { '@type': 'ListItem', position: 3, name: quiz.title, item: pageUrl },
-    ],
-  },
-];
+const site = Astro.site!;
+const pageUrl = new URL(`/quizzes/${slug}/`, site).toString();
+
+// ── KAIRO quiz ──
+const state = kq ? quizState(kq) : null;
+const t = kq ? displayTitle(kq) : null;
+const isDaily = kq?.type === 'daily_quiz';
+const kFacts = kq
+  ? ([
+      kq.subject ?? (isDaily ? t?.sub?.includes(',') ? 'Mixed subjects' : null : null),
+      `${kq.question_count} questions`,
+      minutes(kq.time_limit_sec),
+      kq.has_passcode ? 'Private challenge' : 'Free',
+    ].filter(Boolean) as string[])
+  : [];
+const kDescription = kq
+  ? kq.description || `${kq.title}: free TECHMED UTME 2027 practice on KAIRO.`
+  : '';
+const shareText = kq ? `${kq.title}\n${kq.question_count} questions · ${minutes(kq.time_limit_sec)}. Can you beat my score? 👉 ${pageUrl}` : '';
+
+// ── Sanity quiz (unchanged behaviour) ──
+const sFacts = sq
+  ? ([sq.subject, sq.programme, sq.questionCount ? `${sq.questionCount} questions` : null,
+      sq.durationMinutes ? `${sq.durationMinutes} minutes` : null, accessLabel(sq)].filter(Boolean) as string[])
+  : [];
+const sDescription = sq
+  ? sq.shortDescription || `${sq.title}: a TECHMED ${sq.subject && sq.subject !== 'Mixed / All' ? sq.subject + ' ' : ''}quiz for UTME 2027 candidates.`
+  : '';
+
+const title = kq ? `${kq.title} | TECHMED` : sq ? `${sq.title} | TECHMED Quizzes` : 'Quiz not found | TECHMED Quizzes';
+const description = kq ? kDescription : sq ? sDescription : 'This quiz is not available. See today’s free TECHMED quizzes.';
+const ogImage = kq ? ogImageFor(kq) : sq?.coverImage || '/images/quiz-og/quiz.jpg';
+const jsonLd = kq || sq
+  ? [
+      {
+        '@context': 'https://schema.org', '@type': 'Quiz', name: kq?.title ?? sq?.title, description, url: pageUrl,
+        educationalLevel: 'Senior secondary / UTME', provider: { '@type': 'Organization', name: 'TECHMED', url: site.toString() },
+        isAccessibleForFree: kq ? !kq.has_passcode : sq?.category === 'free',
+        ...(kq?.subject ? { about: kq.subject } : sq?.subject && sq.subject !== 'Mixed / All' ? { about: sq.subject } : {}),
+      },
+      {
+        '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: site.toString() },
+          { '@type': 'ListItem', position: 2, name: 'Quizzes', item: new URL('/quizzes/', site).toString() },
+          { '@type': 'ListItem', position: 3, name: kq?.title ?? sq?.title, item: pageUrl },
+        ],
+      },
+    ]
+  : [];
 ---
 
-<BaseLayout title={`${quiz.title} | TECHMED Quizzes`} description={description} jsonLd={jsonLd}>
-  <main class="quiz-detail" data-quiz-slug={quiz.slug}>
-    <nav class="qd-crumbs" aria-label="Breadcrumb"><a href="/quizzes/">Quizzes</a> <span aria-hidden="true">/</span> <span>{quiz.title}</span></nav>
-    <h1>{quiz.title}</h1>
-    {quiz.shortDescription && <p class="qd-desc">{quiz.shortDescription}</p>}
-    <ul class="qd-facts">{facts.map((f) => <li>{f}</li>)}</ul>
-    {quiz.comingSoon && quiz.comingSoonText && <p class="qd-soon">{quiz.comingSoonText}</p>}
-    <div class="qd-action" data-qd-action>
-      <p class="qd-loading">Checking your access…</p>
-    </div>
-    <p class="qd-back"><a href="/quizzes/">← All quizzes</a></p>
-  </main>
+<BaseLayout title={title} description={description} ogImage={ogImage} jsonLd={jsonLd} canonicalUrl={pageUrl} noindex={!kq && !sq}>
+  {kq && t && (
+    <main class="quiz-detail kq" data-kairo-quiz data-opens={kq.opens_at ?? ''} data-start={startUrl(kq)}>
+      <nav class="qd-crumbs" aria-label="Breadcrumb"><a href="/quizzes/">Quizzes</a> <span aria-hidden="true">/</span> <span>{t.heading}</span></nav>
+      <p class="kq-eyebrow">{kq.type === 'challenge' ? 'TECHMED CHALLENGE' : isDaily ? 'DAILY BUILDER QUIZ · UTME 2027' : 'TECHMED QUIZ · UTME 2027'}</p>
+      <h1>{t.heading}</h1>
+      {t.sub && <p class="kq-topic">{t.sub}</p>}
+      <ul class="qd-facts">{kFacts.map((f) => <li>{f}</li>)}</ul>
+
+      {kq.prize_text && (
+        <div class="kq-prize">
+          <span aria-hidden="true">🏆</span>
+          <div><b>{kq.prize_text}</b>{kq.max_winners && <span> · top {kq.max_winners} {kq.max_winners === 1 ? 'Builder wins' : 'Builders win'}</span>}</div>
+        </div>
+      )}
+
+      <div class="kq-action">
+        {state === 'open' && (
+          <>
+            <a class="kq-btn" href={startUrl(kq)}>Start quiz</a>
+            <p class="kq-note">
+              {kq.has_passcode
+                ? 'This is a private challenge. Have the passcode from your class or group ready; KAIRO will ask for it.'
+                : kq.guests_allowed
+                  ? 'Opens on KAIRO, TECHMED’s practice app. No account needed to play; sign in at the end to save your score and rank.'
+                  : 'Opens on KAIRO, TECHMED’s practice app. Sign in with your free TECHMED account to play.'}
+            </p>
+          </>
+        )}
+        {state === 'scheduled' && (
+          <>
+            <span class="kq-btn kq-btn-wait" data-countdown aria-live="polite">Opens soon</span>
+            <p class="kq-note">Opens {kq.opens_at && new Date(kq.opens_at).toLocaleString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Lagos' })} (Lagos time). Bookmark this page.</p>
+          </>
+        )}
+        {state === 'closed' && (
+          <>
+            <a class="kq-btn kq-btn-alt" href="/quizzes/">See today’s quiz</a>
+            <p class="kq-note">This quiz has closed. Here is how the Builders finished.</p>
+          </>
+        )}
+        <p class="kq-points">
+          <span>✔ Real JAMB past questions</span><span>✔ Instant score and an explanation for every answer</span>
+          <span>✔ Builders don’t guess — they prepare</span>
+        </p>
+      </div>
+
+      <section class="kq-board" aria-labelledby="board-h">
+        <div class="kq-board-head">
+          <h2 id="board-h">{state === 'closed' ? 'Final top 10' : 'Top scorers'}</h2>
+          <span>{kq.players} {kq.players === 1 ? 'Builder' : 'Builders'} played</span>
+        </div>
+        {board.length ? (
+          <ol class="kq-rows">
+            {board.map((r) => (
+              <li class={r.rank <= 3 ? `top top-${r.rank}` : ''}>
+                <span class="rk">{r.rank}</span><span class="nm">{r.initials}</span>
+                <span class="sc">{r.score}/{r.total}</span><span class="tm">{clock(r.duration_sec)}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p class="kq-empty">{state === 'scheduled' ? 'The board opens with the quiz.' : 'No scores yet. Be the first Builder on the board.'}</p>
+        )}
+        <p class="kq-fine">Ranked by score, then fastest time. Only each Builder’s first attempt counts. Initials only.</p>
+      </section>
+
+      <a class="kq-share" href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener">Challenge a friend on WhatsApp</a>
+      <p class="qd-back"><a href="/quizzes/">← All quizzes</a></p>
+    </main>
+  )}
+
+  {sq && (
+    <main class="quiz-detail" data-quiz-slug={sq.slug}>
+      <nav class="qd-crumbs" aria-label="Breadcrumb"><a href="/quizzes/">Quizzes</a> <span aria-hidden="true">/</span> <span>{sq.title}</span></nav>
+      <h1>{sq.title}</h1>
+      {sq.shortDescription && <p class="qd-desc">{sq.shortDescription}</p>}
+      <ul class="qd-facts">{sFacts.map((f) => <li>{f}</li>)}</ul>
+      {sq.comingSoon && sq.comingSoonText && <p class="qd-soon">{sq.comingSoonText}</p>}
+      <div class="qd-action" data-qd-action>
+        <p class="qd-loading">Checking your access…</p>
+      </div>
+      <p class="qd-back"><a href="/quizzes/">← All quizzes</a></p>
+    </main>
+  )}
+
+  {!kq && !sq && (
+    <main class="quiz-detail">
+      <h1>We couldn’t find that quiz</h1>
+      <p class="qd-desc">The link may be mistyped, or the quiz has been removed. Today’s free quizzes are one tap away.</p>
+      <p><a class="kq-btn" href="/quizzes/">See all quizzes</a></p>
+    </main>
+  )}
 </BaseLayout>
 
 <script>
   import { getSupabase } from '../../lib/supabase';
   import { QUIZ_ACCESS_URL, WHATSAPP_NUMBER } from '../../lib/quizConstants';
 
-  const root = document.querySelector('[data-quiz-slug]') as HTMLElement;
-  const box = root.querySelector('[data-qd-action]') as HTMLElement;
-  const slug = root.dataset.quizSlug;
-  const esc = (s: unknown) =>
-    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
-
-  (async () => {
-    try {
-      const { data } = await getSupabase().auth.getSession();
-      const token = data.session?.access_token;
-      const res = await fetch(`${QUIZ_ACCESS_URL}?action=quizzes`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        cache: 'no-store',
-      });
-      const body = await res.json();
-      const q = (body.quizzes || []).find((x: { slug: string }) => x.slug === slug);
-      if (!q) {
-        box.innerHTML = `<p>This quiz isn't available right now. <a href="/quizzes/">See all quizzes</a></p>`;
+  // KAIRO quiz: count down to opening, then turn into the Start button.
+  const kq = document.querySelector('[data-kairo-quiz]') as HTMLElement | null;
+  const cd = kq?.querySelector('[data-countdown]') as HTMLElement | null;
+  if (kq && cd && kq.dataset.opens) {
+    const opens = Date.parse(kq.dataset.opens);
+    const tick = () => {
+      const s = Math.max(0, Math.round((opens - Date.now()) / 1000));
+      if (s === 0) {
+        const a = document.createElement('a');
+        a.className = 'kq-btn';
+        a.href = kq.dataset.start || '/quizzes/';
+        a.textContent = 'Start quiz';
+        cd.replaceWith(a);
         return;
       }
-      if (q.state === 'open' && q.quizUrl) {
-        box.innerHTML = `<a class="qd-btn" href="${esc(q.quizUrl)}" target="_blank" rel="noopener">Start quiz</a>
-          ${q.passcode ? `<p class="qd-pass">Passcode: <code>${esc(q.passcode)}</code> <button type="button" class="qd-copy">Copy</button></p>` : ''}
-          ${q.platform === 'QuizBoot' ? '<p class="qd-note">Opens on QuizBoot in a new tab. A free QuizBoot account is needed.</p>' : ''}`;
-        box.querySelector('.qd-copy')?.addEventListener('click', async (e) => {
-          await navigator.clipboard.writeText(q.passcode);
-          (e.target as HTMLElement).textContent = 'Copied';
-        });
-      } else if (q.state === 'locked' && q.lockReason === 'book' && q.book?.slug) {
-        box.innerHTML = `<a class="qd-btn" href="/resources/${esc(q.book.slug)}/">Get the book</a><p class="qd-note">This question bank is free with ${esc(q.book.title)}.${body.signedIn ? '' : ' Already own it? <a href="/login?redirect=' + encodeURIComponent(location.pathname) + '">Sign in</a>.'}</p>`;
-      } else if (q.state === 'locked') {
-        box.innerHTML = `<a class="qd-btn" href="/pricing/">Enrol to unlock</a><p class="qd-note">For TECHMED plan students.${body.signedIn ? '' : ' Already enrolled? <a href="/login?redirect=' + encodeURIComponent(location.pathname) + '">Sign in</a>.'}</p>`;
-      } else if (q.state === 'coming_soon') {
-        box.innerHTML = q.waitlistMessage
-          ? `<a class="qd-btn" href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(q.waitlistMessage)}" target="_blank" rel="noopener">Join the waitlist</a>`
-          : '<p class="qd-note">Coming soon.</p>';
-      } else {
-        box.innerHTML = '<p class="qd-note">This quiz is closed. <a href="/quizzes/">See open quizzes</a></p>';
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      cd.textContent = `Opens in ${h ? h + 'h ' : ''}${String(m).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s`;
+      setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
+  // Sanity quiz: unchanged access check (QuizBoot links, class quizzes, book banks).
+  const root = document.querySelector('[data-quiz-slug]') as HTMLElement | null;
+  const box = root?.querySelector('[data-qd-action]') as HTMLElement | null;
+  const esc = (s: unknown) =>
+    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+  if (root && box) {
+    const slug = root.dataset.quizSlug;
+    (async () => {
+      try {
+        const { data } = await getSupabase().auth.getSession();
+        const token = data.session?.access_token;
+        const res = await fetch(`${QUIZ_ACCESS_URL}?action=quizzes`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' });
+        const body = await res.json();
+        const q = (body.quizzes || []).find((x: { slug: string }) => x.slug === slug);
+        if (!q) {
+          box.innerHTML = `<p>This quiz isn't available right now. <a href="/quizzes/">See all quizzes</a></p>`;
+          return;
+        }
+        if (q.state === 'open' && q.quizUrl) {
+          box.innerHTML = `<a class="qd-btn" href="${esc(q.quizUrl)}" target="_blank" rel="noopener">Start quiz</a>
+            ${q.passcode ? `<p class="qd-pass">Passcode: <code>${esc(q.passcode)}</code> <button type="button" class="qd-copy">Copy</button></p>` : ''}
+            ${q.platform === 'QuizBoot' ? '<p class="qd-note">Opens on QuizBoot in a new tab. A free QuizBoot account is needed.</p>' : ''}`;
+          box.querySelector('.qd-copy')?.addEventListener('click', async (e) => {
+            await navigator.clipboard.writeText(q.passcode);
+            (e.target as HTMLElement).textContent = 'Copied';
+          });
+        } else if (q.state === 'locked' && q.lockReason === 'book' && q.book?.slug) {
+          box.innerHTML = `<a class="qd-btn" href="/resources/${esc(q.book.slug)}/">Get the book</a><p class="qd-note">This question bank is free with ${esc(q.book.title)}.${body.signedIn ? '' : ' Already own it? <a href="/login?redirect=' + encodeURIComponent(location.pathname) + '">Sign in</a>.'}</p>`;
+        } else if (q.state === 'locked') {
+          box.innerHTML = `<a class="qd-btn" href="/pricing/">Enrol to unlock</a><p class="qd-note">For TECHMED plan students.${body.signedIn ? '' : ' Already enrolled? <a href="/login?redirect=' + encodeURIComponent(location.pathname) + '">Sign in</a>.'}</p>`;
+        } else if (q.state === 'coming_soon') {
+          box.innerHTML = q.waitlistMessage
+            ? `<a class="qd-btn" href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(q.waitlistMessage)}" target="_blank" rel="noopener">Join the waitlist</a>`
+            : '<p class="qd-note">Coming soon.</p>';
+        } else {
+          box.innerHTML = '<p class="qd-note">This quiz is closed. <a href="/quizzes/">See open quizzes</a></p>';
+        }
+      } catch {
+        box.innerHTML = '<p class="qd-note">Couldn\'t check access right now. Please try again.</p>';
       }
-    } catch {
-      box.innerHTML = '<p class="qd-note">Couldn\'t check access right now. Please try again.</p>';
-    }
-  })();
+    })();
+  }
 </script>
 
 <style>
@@ -186,5 +322,145 @@ const jsonLd = [
     background: transparent;
     color: var(--text);
     font-weight: 700;
+  }
+
+  /* ── KAIRO quiz landing ── */
+  .kq-eyebrow {
+    margin: 0 0 6px;
+    font: 800 0.72rem 'Montserrat', sans-serif;
+    letter-spacing: 0.12em;
+    color: var(--accent-text, var(--accent));
+  }
+  .kq-topic {
+    margin: -4px 0 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-light);
+  }
+  .kq-prize {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 4px 0 8px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(201, 162, 39, 0.12);
+    border: 1px solid rgba(201, 162, 39, 0.45);
+    font-size: 0.95rem;
+  }
+  .kq-prize > span {
+    font-size: 1.6rem;
+  }
+  .kq-action {
+    margin: 18px 0 26px;
+    display: grid;
+    gap: 10px;
+    max-width: 440px;
+  }
+  .kq-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px;
+    padding: 0 24px;
+    border-radius: 14px;
+    background: var(--accent, #c9a227);
+    color: #1a1400;
+    font: 800 1.1rem 'Montserrat', sans-serif;
+    text-decoration: none;
+    box-shadow: 0 6px 18px rgba(201, 162, 39, 0.35);
+  }
+  .kq-btn-wait {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .kq-btn-alt {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--accent, #c9a227);
+    box-shadow: none;
+  }
+  .kq-note {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--text-light);
+  }
+  .kq-points {
+    display: grid;
+    gap: 4px;
+    margin: 6px 0 0;
+    font-size: 0.86rem;
+    color: var(--text-light);
+  }
+  .kq-board {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    padding: 16px;
+  }
+  .kq-board-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .kq-board-head h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  .kq-board-head span,
+  .kq-fine,
+  .kq-empty {
+    font-size: 0.8rem;
+    color: var(--text-light);
+  }
+  .kq-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+  }
+  .kq-rows li {
+    display: grid;
+    grid-template-columns: 2.2em 1fr auto 3.6em;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .kq-rows li:nth-child(odd) {
+    background: rgba(152, 176, 196, 0.1);
+  }
+  .kq-rows .rk {
+    font: 800 0.95rem 'Montserrat', sans-serif;
+  }
+  .kq-rows .top .rk {
+    color: var(--accent-text, var(--accent));
+  }
+  .kq-rows .nm {
+    font-weight: 700;
+  }
+  .kq-rows .sc {
+    font-weight: 800;
+  }
+  .kq-rows .tm {
+    text-align: right;
+    color: var(--text-light);
+    font-size: 0.85rem;
+  }
+  .kq-fine {
+    margin: 10px 0 0;
+  }
+  .kq-share {
+    display: inline-block;
+    margin: 18px 0 4px;
+    font-weight: 700;
+    color: var(--accent-text, var(--accent));
   }
 </style>

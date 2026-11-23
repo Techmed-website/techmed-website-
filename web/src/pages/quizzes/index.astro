@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import QuizHub from '../../components/QuizHub.astro';
+import KairoQuizStrip from '../../components/KairoQuizStrip.astro';
 import { getPublicQuizzes } from '../../lib/quizzes';
 
 const quizzes = await getPublicQuizzes();
@@ -38,6 +39,7 @@ const jsonLd = [
         Free quizzes are open to everyone; class quizzes and book question banks unlock with your TECHMED plan or book.
       </p>
     </header>
+    <KairoQuizStrip />
     <QuizHub variant="page" />
   </main>
 </BaseLayout>
