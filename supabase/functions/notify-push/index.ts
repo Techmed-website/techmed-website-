@@ -1,7 +1,7 @@
 // TECHMED automatic push notifications (OneSignal "Techmed app").
 // Called only by the database (pg_cron + order trigger) with the shared secret.
 //   {action:"tick"}      every 5 min: class reminders (timetable + Studio "Scheduled live class"),
-//                        new quizzes, mock exams opening/closing
+//                        new quizzes, mock exams opening/closing, KAIRO's Daily Builder Quiz at 06:00
 //   {action:"midday"}    daily 12:07 Lagos: renewal pushes + enrol campaign
 //   {action:"evening"}   daily 20:07 Lagos: inactivity nudges + "classes start tomorrow"
 //   {action:"payment", user_id}  payment verified
@@ -75,9 +75,9 @@ async function record(audience: "all" | "free" | "paid" | "user", title: string,
   await admin.from("notifications").insert({ audience, title, body, url: path, user_id: userId ?? null });
 }
 const audienceOf = (f: Filter[]) => (f === FREE ? "free" : f === PAID ? "paid" : "all");
-async function msg(filters: Filter[], title: string, text: string, path = "/dashboard") {
+async function msg(filters: Filter[], title: string, text: string, path = "/dashboard", extra: Record<string, unknown> = {}) {
   await record(audienceOf(filters), title, text, path);
-  return push({ filters, headings: { en: title }, contents: { en: text }, url: SITE + path });
+  return push({ filters, headings: { en: title }, contents: { en: text }, url: SITE + path, ...extra });
 }
 // Personal template pushes: the link is set here so a tap always opens the right page.
 const LABEL: Record<string, [string, string, string]> = {
@@ -155,7 +155,23 @@ async function tick() {
     if (!path.startsWith("/")) path = "/dashboard";
     await msg(who, n.title, n.message, path);
   }
-  // 4) New quizzes and mock exams
+  // 4) KAIRO's Daily Builder Quiz (built at 04:30 Lagos from the question bank), announced at 06:00. It opens the quiz's
+  //    page on techmedng.com (leaderboard + Start into KAIRO). Each day's push replaces yesterday's on the phone.
+  if (now >= atLagos(today, "06:00")) {
+    const dayStart = atLagos(today, "00:00");
+    const { data: dq } = await admin.schema("cbt").from("assessments")
+      .select("id, title, slug, day_number")
+      .eq("type", "daily_quiz").eq("status", "live").not("slug", "is", null)
+      .gte("opens_at", new Date(dayStart).toISOString()).lt("opens_at", new Date(dayStart + DAY).toISOString())
+      .limit(1).maybeSingle();
+    if (dq && (await once(`kairo-daily:${today}`))) {
+      const label = String(dq.title).replace(/^.*—\s*Day \d+:\s*/, "");
+      await msg(ALL, `🔥 Day ${dq.day_number} quiz is live`, `${label}. 10 questions, 5 minutes. Can you top the leaderboard?`,
+        `/quizzes/${dq.slug}`, { web_push_topic: "daily-quiz" });
+    }
+  }
+  // 5) New quizzes and mock exams listed in Studio (the old QuizBoot "Daily Builder" entries are skipped: KAIRO's
+  //    daily quiz above replaces them)
   const quizzes = await sanity<Array<{ _id: string; title: string; slug: string; category: string; programme?: string; comingSoon?: boolean; opensAt?: string; closesAt?: string }>>(
     `*[_type=="quiz" && status=="Live" && category!="hidden" && !(_id in path("drafts.**")) && !(title match "TEST*")]{_id,title,"slug":slug.current,category,programme,comingSoon,opensAt,closesAt}`,
   ).catch(() => []);
@@ -167,7 +183,7 @@ async function tick() {
   for (const q of quizzes || []) {
     const open = !q.comingSoon && (!q.opensAt || Date.parse(q.opensAt) <= now);
     const closed = q.closesAt && Date.parse(q.closesAt) <= now;
-    if (!open || closed) continue;
+    if (!open || closed || q.programme === "Daily Builder") continue;
     const isMock = q.programme === "Mock Exam";
     const who = q.category === "paid" ? PAID : ALL;
     if (await once(`quiz:${q._id}`)) {
