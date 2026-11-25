@@ -9,10 +9,10 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
 
   <!-- INTRO -->
   <section class="intro" id="introSection">
-    <p class="eyebrow">Study Planner</p>
-    <h1>Know what to study next.</h1>
-    <p class="lede">You already have timetables, textbooks, YouTube and group chats. What you don't have is one place that answers the actual question: out of everything you could study right now, what makes sense next? Tell it your subjects, your real available time and your exam date &mdash; it builds the route from the TECHMED Blueprint.</p>
-    <p class="intro-blueprint-note">Never seen the Blueprint itself? It's the document behind everything this planner schedules &mdash; what to learn in each topic, why it comes in that order, and what it connects to. <a href="/jamb-syllabus-2027">See it first &rarr;</a></p>
+    <p class="eyebrow">Study Planner &middot; Free</p>
+    <h1>Know exactly what to study today.</h1>
+    <p class="lede">Answer 4 quick questions. You get a plan that tells you what to study each day, in the right order, with revision time saved before your exam.</p>
+    <p class="intro-blueprint-note">The order comes from the TECHMED Blueprint of the JAMB syllabus. <a href="/jamb-syllabus-2027" target="_blank" rel="noopener">See the Blueprint &rarr;</a></p>
   </section>
 
   <!-- ONBOARDING WIZARD -->
@@ -22,20 +22,20 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     <form id="plannerForm" novalidate>
 
       <div class="wiz-step" data-step="date">
-        <h2>When are you writing UTME?</h2>
-        <p class="step-hint">Your best current estimate is fine &mdash; confirm the exact date on jamb.gov.ng closer to the time.</p>
+        <h2>When is your UTME?</h2>
+        <p class="step-hint">A good guess is fine. You can change it any time when JAMB confirms the date.</p>
         <input type="date" id="targetDate" name="targetDate" required />
       </div>
 
       <div class="wiz-step" data-step="subjects" hidden>
-        <h2>Which subjects are you taking?</h2>
-        <p class="step-hint">Use of English is required for every UTME candidate. Choose exactly 3 more.</p>
+        <h2>Which subjects should we plan?</h2>
+        <p class="step-hint">Use of English is always included. Pick up to 3 more. The planner covers the subjects TECHMED has a Blueprint for; if one of yours is not listed, plan the ones that are.</p>
         <div class="subject-picker" id="subjectPicker"></div>
       </div>
 
       <div class="wiz-step" data-step="capacity" hidden>
-        <h2>How much time can you realistically protect each week?</h2>
-        <p class="step-hint">Not how much you'd <em>like</em> to study &mdash; how much you can actually promise, most weeks.</p>
+        <h2>When can you study?</h2>
+        <p class="step-hint">Be honest: pick what you can keep up most weeks, not your best week.</p>
         <div class="field-group">
           <span class="field-label">Days you can usually study</span>
           <div class="day-toggles" id="dayToggles" role="group" aria-label="Available days">
@@ -45,20 +45,20 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
           </div>
         </div>
         <div class="field-group">
-          <label class="field-label" for="hoursPerDay">Focused hours on a normal study day</label>
-          <input type="number" id="hoursPerDay" name="hoursPerDay" min="0.5" max="12" step="0.5" value="2" required />
+          <label class="field-label" for="hoursPerDay">Hours of focused study on those days</label>
+          <div class="hours-chips" id="hoursChips" role="group" aria-label="Hours per study day">
+            {[1, 2, 3, 4].map((h) => (
+              <button type="button" class="day-toggle hours-chip" data-hours={h} aria-pressed={h === 2 ? 'true' : 'false'}>{h}h</button>
+            ))}
+          </div>
+          <input type="number" id="hoursPerDay" name="hoursPerDay" min="0.5" max="12" step="0.5" value="2" required inputmode="decimal" aria-label="Or type the hours" />
         </div>
       </div>
 
       <div class="wiz-step" data-step="starting-point" hidden>
         <h2>Where are you starting from?</h2>
-        <p class="step-hint">Rough is fine &mdash; this isn't a test.</p>
+        <p class="step-hint">Rough is fine. This is not a test, and you can change it later.</p>
         <div id="subjectDetails" class="subject-details"></div>
-      </div>
-
-      <div class="wiz-step" data-step="review" hidden>
-        <h2>That's enough.</h2>
-        <p class="step-hint">We'll build your route from the TECHMED Blueprint.</p>
         <div class="review-summary" id="reviewSummary"></div>
       </div>
 
@@ -92,7 +92,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
         <h1 id="resultsHeading">Your Plan</h1>
       </div>
       <div class="toolbar-actions">
-        <button type="button" class="btn-secondary" id="printBtn">Print</button>
+        <button type="button" class="btn-secondary" id="printBtn">Print / save PDF</button>
         <button type="button" class="btn-secondary" id="adjustBtn">Adjust my plan</button>
         <button type="button" class="btn-text" id="startOverBtn">Start over</button>
       </div>
@@ -214,7 +214,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
 
   const ENGLISH_SLUG = 'use-of-english';
   const ELECTIVE_SLUGS = subjects.map((s) => s.slug).filter((slug) => slug !== ENGLISH_SLUG);
-  const MAX_ELECTIVES = 3;
+  const MAX_ELECTIVES = 3; // up to 3 besides English (fewer is fine)
 
   const introSection = document.getElementById('introSection') as HTMLElement;
   const wizardSection = document.getElementById('wizardSection') as HTMLElement;
@@ -238,14 +238,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
   // ============================================================
   // WIZARD -- one focused question per screen, not one long form.
   // ============================================================
-  const WIZARD_STEPS = ['date', 'subjects', 'capacity', 'starting-point', 'review'] as const;
+  const WIZARD_STEPS = ['date', 'subjects', 'capacity', 'starting-point'] as const;
   type WizardStep = (typeof WIZARD_STEPS)[number];
   const STEP_TITLES: Record<WizardStep, string> = {
     date: 'Exam date',
     subjects: 'Subjects',
     capacity: 'Weekly time',
     'starting-point': 'Starting point',
-    review: 'Review',
   };
   let stepIndex = 0;
 
@@ -276,8 +275,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     wizNext.hidden = isLast;
     wizBuild.hidden = !isLast;
     renderWizardProgress();
-    if (WIZARD_STEPS[index] === 'starting-point') renderSubjectDetails();
-    if (WIZARD_STEPS[index] === 'review') renderReviewSummary();
+    if (WIZARD_STEPS[index] === 'starting-point') { renderSubjectDetails(); renderReviewSummary(); }
   }
 
   function showStepError(message: string) {
@@ -291,21 +289,37 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
       const value = (document.getElementById('targetDate') as HTMLInputElement).value;
       if (!value) return showStepError('Pick a date to continue.'), false;
       if (value <= todayIso()) return showStepError('Pick a date after today.'), false;
+      if (value > addDays(todayIso(), 730)) return showStepError('Pick a date within the next two years.'), false;
       return true;
     }
     if (step === 'subjects') {
-      if (selectedElectives.size !== MAX_ELECTIVES) {
-        return showStepError(`Choose exactly ${MAX_ELECTIVES} electives alongside Use of English.`), false;
-      }
+      if (selectedElectives.size < 1) return showStepError('Pick at least one subject besides Use of English.'), false;
       return true;
     }
     if (step === 'capacity') {
       const days = dayToggles.filter((b) => b.getAttribute('aria-pressed') === 'true');
-      if (days.length === 0) return showStepError('Select at least one day.'), false;
+      if (days.length === 0) return showStepError('Pick at least one day.'), false;
+      if (!validHours(readHours())) return showStepError('Enter between half an hour and 12 hours.'), false;
       return true;
     }
     return true;
   }
+
+  const hoursInput = document.getElementById('hoursPerDay') as HTMLInputElement;
+  const hoursChips = Array.from(document.querySelectorAll<HTMLButtonElement>('#hoursChips .hours-chip'));
+  function readHours(): number { return parseFloat(hoursInput.value); }
+  function validHours(h: number): boolean { return Number.isFinite(h) && h >= 0.5 && h <= 12; }
+  function syncHourChips() {
+    const h = readHours();
+    hoursChips.forEach((c) => { const on = Number(c.dataset.hours) === h; c.setAttribute('aria-pressed', String(on)); c.classList.toggle('selected', on); });
+  }
+  hoursChips.forEach((c) => c.addEventListener('click', () => { hoursInput.value = c.dataset.hours || '2'; syncHourChips(); }));
+  hoursInput.addEventListener('input', syncHourChips);
+
+  // Sensible defaults so most students only tap Continue: Monday to Saturday, 2 hours, exam date no earlier than tomorrow.
+  const targetDateInput = document.getElementById('targetDate') as HTMLInputElement;
+  targetDateInput.min = addDays(todayIso(), 1);
+  targetDateInput.max = addDays(todayIso(), 730);
 
   wizNext.addEventListener('click', () => {
     if (!validateCurrentStep()) return;
@@ -352,7 +366,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
       chip.classList.remove('selected');
       chip.setAttribute('aria-pressed', 'false');
     } else {
-      if (selectedElectives.size >= MAX_ELECTIVES) return;
+      if (selectedElectives.size >= MAX_ELECTIVES) {
+        showStepError(`You can pick up to ${MAX_ELECTIVES}. Tap one you picked to swap it.`);
+        return;
+      }
+      stepError.hidden = true;
       selectedElectives.add(slug);
       chip.classList.add('selected');
       chip.setAttribute('aria-pressed', 'true');
@@ -367,6 +385,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
 
   // --- Capacity: day toggles ---
   const dayToggles = Array.from(document.querySelectorAll<HTMLButtonElement>('#dayToggles .day-toggle'));
+  const DEFAULT_DAYS = [1, 2, 3, 4, 5, 6];
+  function setDefaultDays() {
+    dayToggles.forEach((b) => { const on = DEFAULT_DAYS.includes(Number(b.dataset.day)); b.setAttribute('aria-pressed', String(on)); b.classList.toggle('selected', on); });
+  }
+  setDefaultDays();
   dayToggles.forEach((btn) => {
     btn.addEventListener('click', () => {
       const pressed = btn.getAttribute('aria-pressed') === 'true';
@@ -513,6 +536,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     const coveredCount = readInitiallyCompletedKeys().size;
 
     summary.innerHTML = `
+      <p class="mini-label">Your plan</p>
       <ul class="review-list">
         <li><span>Exam date</span><strong>${formattedDate}</strong></li>
         <li><span>Subjects</span><strong>${subjectNames.join(', ')}</strong></li>
@@ -521,6 +545,9 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
         ${coveredCount > 0 ? `<li><span>Already covered</span><strong>${coveredCount} topic${coveredCount === 1 ? '' : 's'}</strong></li>` : ''}
       </ul>`;
   }
+
+  subjectDetails.addEventListener('click', () => setTimeout(renderReviewSummary, 0));
+  subjectDetails.addEventListener('change', renderReviewSummary);
 
   renderSubjectPicker();
   showStep(0);
@@ -535,7 +562,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     const availableDays = dayToggles
       .filter((b) => b.getAttribute('aria-pressed') === 'true')
       .map((b) => parseInt(b.dataset.day || '0', 10));
-    if (!targetDate || availableDays.length === 0 || selectedElectives.size !== MAX_ELECTIVES) return null;
+    if (!targetDate || targetDate <= todayIso() || availableDays.length === 0 || selectedElectives.size < 1 || !validHours(hoursPerAvailableDay)) return null;
 
     const plannerSubjects: PlannerSubjectInput[] = currentSubjectSlugs().map((slug) => {
       const detailEl = subjectDetails.querySelector(`.subject-detail[data-slug="${slug}"]`) as HTMLElement;
@@ -793,6 +820,34 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     return null;
   }
 
+  const KAIRO_CODES: Record<string, string> = { chemistry: 'CHM', physics: 'PHY', biology: 'BIO', mathematics: 'MTH', 'use-of-english': 'ENG' };
+  function practiceLinkHtml(slug: string): string {
+    const code = KAIRO_CODES[slug];
+    if (!code) return '';
+    return `<a class="practice-link" href="https://kairo.techmedng.com/practice/${code}" target="_blank" rel="noopener">Practise ${escapeHtml(subjectLabel(slug))} past questions on KAIRO (free) &rarr;</a>`;
+  }
+
+  /** "Mon 24 Nov" style, for the route and print sheet. */
+  function shortDate(iso: string): string {
+    return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  /** Every topic key in a subject's Blueprint, whatever stage the student started from. */
+  function subjectTopicKeys(slug: string): Set<string> {
+    const subject = subjectBySlug.get(slug);
+    const keys = new Set<string>();
+    for (const stage of subject?.stages ?? []) for (const t of stage.topics) keys.add(topicKey(slug, stage.order, t.title));
+    return keys;
+  }
+
+  /** Done / total topics for one subject: counts only real topics of that subject, so it can never pass 100%. */
+  function subjectCoverage(slug: string, completed: Set<string>): { done: number; total: number } {
+    const keys = subjectTopicKeys(slug);
+    let done = 0;
+    for (const k of keys) if (completed.has(k)) done++;
+    return { done, total: keys.size };
+  }
+
   function formatDayLabel(iso: string): string {
     const d = new Date(iso + 'T00:00:00');
     const dayName = d.toLocaleDateString(undefined, { weekday: 'long' });
@@ -849,7 +904,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
           <p>${whyThisNext(task)}</p>
           ${blueprintLinkHtml(task)}
         </details>
-        ${task.kind === 'first-pass' ? `<p class="practice-nudge" data-practice-nudge hidden>Nice. When you're ready, test yourself with past questions on &ldquo;${task.topicTitle}.&rdquo;</p>` : ''}
+        <p class="practice-nudge" data-practice-nudge hidden>Nice work. Now test yourself: ${practiceLinkHtml(task.subjectSlug)}</p>
         <div class="reflection" data-reflection hidden>
           <label class="reflection-label" for="${reflectId}">Optional: what's one thing you'd say about this?</label>
           <input type="text" id="${reflectId}" class="reflection-input" maxlength="140" placeholder="e.g. I learned how to use a vernier caliper" value="${escapeHtml(existingNote)}" />
@@ -876,6 +931,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
       });
       list.appendChild(li);
     });
+    const extra = document.createElement('li');
+    extra.className = 'task-extra';
+    const codes = plan.input.subjects.map((x) => x.slug).filter((slug) => KAIRO_CODES[slug]);
+    extra.innerHTML = `Finished early? ${codes.length ? practiceLinkHtml(tasks[0].subjectSlug) : ''}`;
+    list.appendChild(extra);
   }
 
   function renderWeek(plan: PlannerPlan) {
@@ -943,15 +1003,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     const completed = loadCompletedKeys();
     const selectedSlugs = new Set(plan.input.subjects.map((s) => s.slug));
 
-    // Coverage: distinct topics ever marked complete, against the total
-    // topics each subject is responsible for from its own starting point.
+    // Coverage: topics marked complete out of every topic in the student's subjects' Blueprints.
     let coveredCount = 0;
     let totalCount = 0;
-    for (const slug of selectedSlugs) totalCount += plan.subjectTopicTotals[slug] ?? 0;
-    // completed keys are formatted `${slug}::${stageOrder}::${title}` (see topicKey in plannerEngine.ts)
-    for (const key of completed) {
-      const slug = key.split('::')[0];
-      if (selectedSlugs.has(slug)) coveredCount++;
+    for (const slug of selectedSlugs) {
+      const c = subjectCoverage(slug, completed);
+      coveredCount += c.done;
+      totalCount += c.total;
     }
 
     // This week's plan completion.
@@ -993,7 +1051,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
         ];
         return `
           <details class="roadmap-week">
-            <summary>Week ${week.weekNumber} &middot; ${week.startDate} &rarr; ${week.endDate}${week.isReviewWeek ? ' &middot; Revision' : ''}</summary>
+            <summary>Week ${week.weekNumber} &middot; ${shortDate(week.startDate)} &ndash; ${shortDate(week.endDate)}${week.isReviewWeek ? ' &middot; Revision' : ''}</summary>
             <ul>${items.length ? items.join('') : '<li class="empty-note">Nothing scheduled.</li>'}</ul>
           </details>`;
       })
@@ -1026,7 +1084,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
         const items = [...w.topics.map((t) => taskLine(t, 'first-pass')), ...w.reviewTopics.map((t) => taskLine(t, 'review'))];
         return `
           <tr>
-            <td>Week ${w.weekNumber}<br /><span class="ps-dates">${w.startDate} &rarr; ${w.endDate}</span>${w.isReviewWeek ? '<br /><span class="ps-dates">Revision</span>' : ''}</td>
+            <td>Week ${w.weekNumber}<br /><span class="ps-dates">${shortDate(w.startDate)} &ndash; ${shortDate(w.endDate)}</span>${w.isReviewWeek ? '<br /><span class="ps-dates">Revision</span>' : ''}</td>
             <td>${items.length ? `<ul>${items.join('')}</ul>` : '&mdash;'}</td>
           </tr>`;
       })
@@ -1053,8 +1111,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
           ? '<p>Revision phase &mdash; most new learning is done; this stretch is retrieval and practice.</p>'
           : `<ul class="ps-list">${plan.input.subjects
               .map((s) => {
-                const total = plan.subjectTopicTotals[s.slug] ?? 0;
-                const done = [...completed].filter((k) => k.startsWith(`${s.slug}::`)).length;
+                const { done, total } = subjectCoverage(s.slug, completed);
                 return `<li><span class="ps-subject">${subjectLabel(s.slug)}</span> ${done} of ${total} topics covered</li>`;
               })
               .join('')}</ul>`
@@ -1065,7 +1122,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
 
       <div class="ps-footer">
         <p><strong>TECHMED</strong> &middot; Admission Intelligence &middot; techmedng.com</p>
-        <p>Built on the TECHMED Blueprint. Continue with Kairo for a revision plan built around exactly where you stand.</p>
+        <p>Built on the TECHMED Blueprint. Practise every topic free on KAIRO: kairo.techmedng.com</p>
       </div>`;
   }
 
@@ -1137,22 +1194,32 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
         const availableDays = Array.from(toggleWrap.querySelectorAll<HTMLButtonElement>('.day-toggle'))
           .filter((b) => b.getAttribute('aria-pressed') === 'true')
           .map((b) => parseInt(b.dataset.day || '0', 10));
-        if (availableDays.length === 0) return;
+        if (availableDays.length === 0 || !validHours(hoursPerAvailableDay)) {
+          alertIn(adjustEdit, 'Pick at least one day and between half an hour and 12 hours.');
+          return;
+        }
         performReplan({ hoursPerAvailableDay, availableDays });
       });
     } else {
       adjustEdit.innerHTML = `
         <div class="field-group">
           <label class="field-label" for="adjustTargetDate">New exam date</label>
-          <input type="date" id="adjustTargetDate" value="${stored.targetDate}" />
+          <input type="date" id="adjustTargetDate" value="${stored.targetDate > todayIso() ? stored.targetDate : ''}" min="${addDays(todayIso(), 1)}" max="${addDays(todayIso(), 730)}" />
         </div>
         <button type="button" class="btn-primary" id="adjustSave">Save &amp; rebuild</button>`;
       document.getElementById('adjustSave')?.addEventListener('click', () => {
         const targetDate = (document.getElementById('adjustTargetDate') as HTMLInputElement).value;
-        if (!targetDate || targetDate <= todayIso()) return;
+        if (!targetDate || targetDate <= todayIso()) { alertIn(adjustEdit, 'Pick a date after today.'); return; }
         performReplan({ targetDate });
       });
     }
+  }
+
+  function alertIn(container: HTMLElement, message: string) {
+    let el = container.querySelector('.step-error') as HTMLElement | null;
+    if (!el) { el = document.createElement('p'); el.className = 'step-error'; el.setAttribute('role', 'alert'); container.appendChild(el); }
+    el.textContent = message;
+    el.hidden = false;
   }
 
   function performReplan(overrides: Partial<PlannerInput>) {
@@ -1186,8 +1253,8 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     const moved = changes.filter((c) => c.status !== 'on-track');
     returnBanner.hidden = false;
     returnBanner.innerHTML = `
-      <p class="return-title">Welcome back.</p>
-      <p class="return-copy">You don't need to catch up on everything at once &mdash; we've adjusted the plan around where things stand now.${
+      <p class="return-title">Plan updated.</p>
+      <p class="return-copy">No need to catch up on everything at once. Your plan now starts from where you are today.${
         moved.length
           ? ' ' + moved.map((c) => `${c.subjectName} moved ${c.status === 'moved-later' ? 'a little later' : 'a little earlier'} to keep your revision time protected.`).join(' ')
           : ' Everything else stayed on track.'
@@ -1195,6 +1262,9 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     setTimeout(() => { returnBanner.hidden = true; }, 12000);
   }
 
+  // On the dashboard the planner shares the page with everything else: print only the plan sheet.
+  window.addEventListener('beforeprint', () => { if (currentPlan) { renderPrintSheet(currentPlan); document.body.classList.add('planner-printing'); } });
+  window.addEventListener('afterprint', () => document.body.classList.remove('planner-printing'));
   document.getElementById('printBtn')?.addEventListener('click', () => window.print());
 
   const startOverDialog = document.getElementById('startOverDialog') as HTMLDialogElement;
@@ -1222,7 +1292,10 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     selectedElectives.clear();
     renderSubjectPicker();
     subjectDetails.innerHTML = '';
-    dayToggles.forEach((b) => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('selected'); });
+    setDefaultDays();
+    hoursInput.value = '2';
+    syncHourChips();
+    targetDateInput.min = addDays(todayIso(), 1);
     showStep(0);
   });
 
@@ -1231,9 +1304,20 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
   if (existing) {
     introSection.hidden = true;
     wizardSection.hidden = true;
-    currentPlan = reconcileCurrentWeek(buildPlan({ input: existing, allSubjects: subjects, alreadyCompletedKeys: loadCompletedKeys() }));
-    renderAll(currentPlan);
-    resultsSection.hidden = false;
+    try {
+      currentPlan = reconcileCurrentWeek(buildPlan({ input: existing, allSubjects: subjects, alreadyCompletedKeys: loadCompletedKeys() }));
+      renderAll(currentPlan);
+      resultsSection.hidden = false;
+      // The exam date on the plan has passed (or is today): ask for the new date instead of showing an empty plan.
+      if (existing.targetDate <= todayIso()) {
+        openAdjustEdit('date');
+        alertIn(adjustEdit, 'Your exam date on this plan has passed. Set your new date to rebuild it.');
+      }
+    } catch {
+      // A plan saved by an older version, or for a subject no longer in the Blueprint: start fresh rather than break.
+      clearInput(); clearCurrentWeekSnapshot();
+      introSection.hidden = false; wizardSection.hidden = false; resultsSection.hidden = true;
+    }
   }
 </script>
 
@@ -1254,12 +1338,12 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
   }
 
   /* ---------- Intro ---------- */
-  .intro {
+  .planner .intro {
     padding: var(--space-16) 0 var(--space-10);
     text-align: center;
   }
 
-  .eyebrow {
+  .planner .eyebrow {
     font-family: var(--font-display);
     font-size: 0.75rem;
     font-weight: 700;
@@ -1268,9 +1352,9 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     color: var(--accent-text);
   }
 
-  .intro .eyebrow { margin-bottom: var(--space-3); }
+  .planner .intro .eyebrow { margin-bottom: var(--space-3); }
 
-  .intro h1 {
+  .planner .intro h1 {
     font-size: clamp(2rem, 5vw, 2.75rem);
     font-weight: 900;
     letter-spacing: -0.03em;
@@ -1278,7 +1362,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     text-wrap: balance;
   }
 
-  .intro .lede {
+  .planner .intro .lede {
     font-size: 1.05rem;
     line-height: 1.75;
     color: var(--text-light);
@@ -1286,7 +1370,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin: 0 auto;
   }
 
-  .intro-blueprint-note {
+  .planner .intro-blueprint-note {
     font-size: 0.88rem;
     line-height: 1.6;
     color: var(--text-muted);
@@ -1294,17 +1378,17 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin: var(--space-5) auto 0;
   }
 
-  .intro-blueprint-note a {
+  .planner .intro-blueprint-note a {
     color: var(--accent-text);
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
   }
 
-  .intro-blueprint-note a:hover { text-decoration: underline; }
+  .planner .intro-blueprint-note a:hover { text-decoration: underline; }
 
   /* ---------- Wizard ---------- */
-  .wizard-progress {
+  .planner .wizard-progress {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1312,7 +1396,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-6);
   }
 
-  .wizard-step-label {
+  .planner .wizard-step-label {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.78rem;
@@ -1321,17 +1405,17 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     color: var(--text-muted);
   }
 
-  .wizard-dots { display: flex; gap: var(--space-2); }
+  .planner .wizard-dots { display: flex; gap: var(--space-2); }
 
-  .wizard-dot {
+  .planner .wizard-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--border);
   }
 
-  .wizard-dot.done { background: var(--accent-deep); }
-  .wizard-dot.active { background: var(--accent); transform: scale(1.3); }
+  .planner .wizard-dot.done { background: var(--accent-deep); }
+  .planner .wizard-dot.active { background: var(--accent); transform: scale(1.3); }
 
   /* :not([hidden]) matters here -- an author rule that sets `display` on
      an element unconditionally overrides the browser's own `[hidden] {
@@ -1339,7 +1423,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
      this guard every step would render stacked regardless of its hidden
      attribute. Same reasoning applies to every other hidden-toggled
      element below that needs a non-default display value. */
-  .wiz-step:not([hidden]) {
+  .planner .wiz-step:not([hidden]) {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1349,16 +1433,16 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     gap: var(--space-5);
   }
 
-  .wiz-step h2 {
+  .planner .wiz-step h2 {
     font-size: 1.4rem;
     font-weight: 800;
     letter-spacing: -0.01em;
     text-wrap: balance;
   }
 
-  .step-hint { font-size: 0.92rem; line-height: 1.6; color: var(--text-light); margin-top: calc(-1 * var(--space-3)); }
+  .planner .step-hint { font-size: 0.92rem; line-height: 1.6; color: var(--text-light); margin-top: calc(-1 * var(--space-3)); }
 
-  .step-error {
+  .planner .step-error {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.85rem;
@@ -1366,18 +1450,16 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-top: var(--space-4);
   }
 
-  .field-group { display: flex; flex-direction: column; gap: var(--space-3); }
+  .planner .field-group { display: flex; flex-direction: column; gap: var(--space-3); }
 
-  .field-label {
+  .planner .field-label {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.95rem;
     color: var(--text);
   }
 
-  input[type="date"],
-  input[type="number"],
-  select {
+  .planner input[type="date"], .planner input[type="number"], .planner select {
     font-family: var(--font-main);
     font-size: 1rem;
     color: var(--text);
@@ -1388,12 +1470,9 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     max-width: 280px;
   }
 
-  .day-toggles { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .planner .day-toggles { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-  .day-toggle,
-  .subject-chip,
-  .segmented-btn,
-  .chip-action {
+  .planner .day-toggle, .planner .subject-chip, .planner .segmented-btn, .planner .chip-action {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.85rem;
@@ -1406,15 +1485,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     transition: all 150ms ease;
   }
 
-  .day-toggle.selected,
-  .subject-chip.selected,
-  .segmented-btn.selected {
+  .planner .day-toggle.selected, .planner .subject-chip.selected, .planner .segmented-btn.selected {
     color: #1a0a00;
     background: linear-gradient(135deg, var(--accent), var(--accent-deep));
     border-color: transparent;
   }
 
-  .subject-chip.fixed {
+  .planner .subject-chip.fixed {
     color: var(--text-muted);
     cursor: default;
     background: var(--surface-raised);
@@ -1423,7 +1500,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     gap: var(--space-2);
   }
 
-  .chip-note {
+  .planner .chip-note {
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -1433,11 +1510,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     padding: 1px 8px;
   }
 
-  .subject-picker { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .planner .subject-picker { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-  .subject-details { display: flex; flex-direction: column; gap: var(--space-5); }
+  .planner .subject-details { display: flex; flex-direction: column; gap: var(--space-5); }
 
-  .subject-detail {
+  .planner .subject-detail {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: var(--space-5);
@@ -1446,26 +1523,26 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     gap: var(--space-4);
   }
 
-  .subject-detail-name {
+  .planner .subject-detail-name {
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 1rem;
     color: var(--accent-text);
   }
 
-  .detail-row { display: flex; flex-direction: column; gap: var(--space-2); }
+  .planner .detail-row { display: flex; flex-direction: column; gap: var(--space-2); }
 
-  .mini-label { font-size: 0.85rem; color: var(--text-light); }
+  .planner .mini-label { font-size: 0.85rem; color: var(--text-light); }
 
-  .segmented { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .planner .segmented { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-  .checklist-hint { font-size: 0.8rem; color: var(--text-muted); margin-top: calc(-1 * var(--space-2)); }
+  .planner .checklist-hint { font-size: 0.8rem; color: var(--text-muted); margin-top: calc(-1 * var(--space-2)); }
 
   /* Flat, no stage headers -- deliberately (see the comment where this is
      built). A tight max-height with its own scroll keeps a long subject
      like Chemistry (18 topics) from pushing the exam-date/subjects/hours
      summary further down the wizard than it needs to be. */
-  .topic-checklist:not([hidden]) {
+  .planner .topic-checklist:not([hidden]) {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
@@ -1476,7 +1553,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     padding: var(--space-3);
   }
 
-  .topic-check {
+  .planner .topic-check {
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -1487,21 +1564,21 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     cursor: pointer;
   }
 
-  .topic-check:hover { background: var(--surface-raised); }
+  .planner .topic-check:hover { background: var(--surface-raised); }
 
-  .topic-check input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .planner .topic-check input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 
-  .review-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
-  .review-list li { display: flex; justify-content: space-between; gap: var(--space-4); font-size: 0.92rem; border-bottom: 1px solid var(--border); padding-bottom: var(--space-3); }
-  .review-list li:last-child { border-bottom: none; padding-bottom: 0; }
-  .review-list span { color: var(--text-muted); }
-  .review-list strong { color: var(--text); text-align: right; }
+  .planner .review-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+  .planner .review-list li { display: flex; justify-content: space-between; gap: var(--space-4); font-size: 0.92rem; border-bottom: 1px solid var(--border); padding-bottom: var(--space-3); }
+  .planner .review-list li:last-child { border-bottom: none; padding-bottom: 0; }
+  .planner .review-list span { color: var(--text-muted); }
+  .planner .review-list strong { color: var(--text); text-align: right; }
 
-  .wiz-nav { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-6); gap: var(--space-3); }
-  .wiz-nav .btn-primary { margin-left: auto; }
+  .planner .wiz-nav { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-6); gap: var(--space-3); }
+  .planner .wiz-nav .btn-primary { margin-left: auto; }
 
   /* ---------- Buttons (shared) ---------- */
-  .btn-primary, .btn-secondary, .btn-text {
+  .planner .btn-primary, .planner .btn-secondary, .planner .btn-text {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.9rem;
@@ -1511,42 +1588,42 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     transition: all 150ms ease;
   }
 
-  .btn-primary {
+  .planner .btn-primary {
     color: #1a0a00;
     background: linear-gradient(135deg, var(--accent), var(--accent-deep));
     border: none;
   }
 
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201, 162, 39, 0.3); }
+  .planner .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201, 162, 39, 0.3); }
 
-  .btn-secondary { color: var(--text); background: transparent; border: 1px solid var(--border); }
-  .btn-secondary:hover { border-color: var(--accent); }
+  .planner .btn-secondary { color: var(--text); background: transparent; border: 1px solid var(--border); }
+  .planner .btn-secondary:hover { border-color: var(--accent); }
 
-  .btn-text { color: var(--text-muted); background: none; border: none; text-decoration: underline; padding: 12px 8px; }
+  .planner .btn-text { color: var(--text-muted); background: none; border: none; text-decoration: underline; padding: 12px 8px; }
 
   /* ---------- Building transition ---------- */
-  .building { text-align: center; padding: var(--space-16) 0; }
+  .planner .building { text-align: center; padding: var(--space-16) 0; }
 
-  .building-title {
+  .planner .building-title {
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 1.2rem;
     margin-bottom: var(--space-5);
   }
 
-  .building-steps { list-style: none; display: inline-flex; flex-direction: column; gap: var(--space-3); text-align: left; }
+  .planner .building-steps { list-style: none; display: inline-flex; flex-direction: column; gap: var(--space-3); text-align: left; }
 
-  .building-steps li {
+  .planner .building-steps li {
     font-size: 0.92rem;
     color: var(--text-muted);
     opacity: 0.5;
     transition: opacity 200ms ease, color 200ms ease;
   }
 
-  .building-steps li.done { opacity: 1; color: var(--accent-text); }
+  .planner .building-steps li.done { opacity: 1; color: var(--accent-text); }
 
   /* ---------- Results header ---------- */
-  .results-header {
+  .planner .results-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -1555,13 +1632,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-6);
   }
 
-  .results-header h1 { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.01em; }
-  .results-header .eyebrow { margin-bottom: var(--space-2); }
+  .planner .results-header h1 { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.01em; }
+  .planner .results-header .eyebrow { margin-bottom: var(--space-2); }
 
-  .toolbar-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+  .planner .toolbar-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 
   /* ---------- Return banner ---------- */
-  .return-banner {
+  .planner .return-banner {
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: inset 3px 0 0 0 var(--accent);
@@ -1570,13 +1647,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-5);
   }
 
-  .return-title { font-family: var(--font-display); font-weight: 800; margin-bottom: var(--space-1); }
-  .return-copy { font-size: 0.9rem; color: var(--text-light); line-height: 1.6; }
+  .planner .return-title { font-family: var(--font-display); font-weight: 800; margin-bottom: var(--space-1); }
+  .planner .return-copy { font-size: 0.9rem; color: var(--text-light); line-height: 1.6; }
 
   /* ---------- Phase banner ---------- */
-  .phase-banner { margin-bottom: var(--space-5); }
+  .planner .phase-banner { margin-bottom: var(--space-5); }
 
-  .phase-label {
+  .planner .phase-label {
     font-family: var(--font-display);
     font-size: 0.72rem;
     font-weight: 700;
@@ -1586,13 +1663,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-2);
   }
 
-  .phase-copy { font-size: 0.92rem; color: var(--text-light); line-height: 1.6; }
+  .planner .phase-copy { font-size: 0.92rem; color: var(--text-light); line-height: 1.6; }
 
-  .phase-copy a { color: var(--accent-text); font-weight: 600; text-decoration: none; }
-  .phase-copy a:hover { text-decoration: underline; }
+  .planner .phase-copy a { color: var(--accent-text); font-weight: 600; text-decoration: none; }
+  .planner .phase-copy a:hover { text-decoration: underline; }
 
   /* ---------- Constraint box ---------- */
-  .constraint-box {
+  .planner .constraint-box {
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: inset 3px 0 0 0 var(--accent);
@@ -1601,20 +1678,20 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-6);
   }
 
-  .constraint-title { font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; margin-bottom: var(--space-2); }
-  .constraint-copy { font-size: 0.9rem; color: var(--text-light); line-height: 1.65; margin-bottom: var(--space-4); }
-  .constraint-lead { font-family: var(--font-display); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: var(--space-2); }
+  .planner .constraint-title { font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; margin-bottom: var(--space-2); }
+  .planner .constraint-copy { font-size: 0.9rem; color: var(--text-light); line-height: 1.65; margin-bottom: var(--space-4); }
+  .planner .constraint-lead { font-family: var(--font-display); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: var(--space-2); }
 
-  .constraint-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .planner .constraint-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
 
-  .chip-action.ghost { background: none; border-color: transparent; text-decoration: underline; color: var(--text-muted); }
+  .planner .chip-action.ghost { background: none; border-color: transparent; text-decoration: underline; color: var(--text-muted); }
 
-  .constraint-details { font-size: 0.85rem; }
-  .constraint-details summary { cursor: pointer; color: var(--text-muted); }
-  .constraint-details ul { list-style: none; padding-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); color: var(--text-light); }
+  .planner .constraint-details { font-size: 0.85rem; }
+  .planner .constraint-details summary { cursor: pointer; color: var(--text-muted); }
+  .planner .constraint-details ul { list-style: none; padding-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); color: var(--text-light); }
 
   /* ---------- Today / Week cards ---------- */
-  .today-card, .week-card, .progress-card {
+  .planner .today-card, .planner .week-card, .planner .progress-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1622,7 +1699,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-5);
   }
 
-  .card-label {
+  .planner .card-label {
     font-family: var(--font-display);
     font-size: 0.72rem;
     font-weight: 700;
@@ -1632,14 +1709,14 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-4);
   }
 
-  .task-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-4); }
+  .planner .task-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-4); }
 
-  .task-item { border-bottom: 1px solid var(--border); padding-bottom: var(--space-4); }
-  .task-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .planner .task-item { border-bottom: 1px solid var(--border); padding-bottom: var(--space-4); }
+  .planner .task-item:last-child { border-bottom: none; padding-bottom: 0; }
 
-  .task-row { display: flex; align-items: flex-start; gap: var(--space-3); }
+  .planner .task-row { display: flex; align-items: flex-start; gap: var(--space-3); }
 
-  .task-number {
+  .planner .task-number {
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 0.85rem;
@@ -1648,7 +1725,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     padding-top: 2px;
   }
 
-  .task-main {
+  .planner .task-main {
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -1657,11 +1734,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     flex: 1;
   }
 
-  .task-main input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  .planner .task-main input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 
-  .task-text { display: flex; flex-direction: column; gap: 2px; }
+  .planner .task-text { display: flex; flex-direction: column; gap: 2px; }
 
-  .task-subject {
+  .planner .task-subject {
     font-family: var(--font-display);
     font-weight: 700;
     color: var(--accent-text);
@@ -1670,19 +1747,19 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     letter-spacing: 0.04em;
   }
 
-  .task-topic { color: var(--text); font-size: 0.98rem; font-weight: 600; }
+  .planner .task-topic { color: var(--text); font-size: 0.98rem; font-weight: 600; }
 
   /* The executable layer: what kind of work this is, and roughly how
      long it takes -- a topic name alone ("Measurements & Units") isn't
      an instruction. Deliberately quiet (not another badge) since the
      tag already carries the primary New/Review distinction. */
-  .task-action { color: var(--text-muted); font-size: 0.8rem; }
+  .planner .task-action { color: var(--text-muted); font-size: 0.8rem; }
 
   /* Tags -- distinct from everything else on the card by design: NEW is a
      solid filled pill (the thing to act on), REVIEW is an outlined pill
      (something you're returning to). Both stay within the brand's
      gold-only accent system rather than introducing new colors per tag. */
-  .tag {
+  .planner .tag {
     font-family: var(--font-display);
     font-size: 0.68rem;
     font-weight: 800;
@@ -1694,22 +1771,22 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-left: auto;
   }
 
-  .tag-new { color: #1a0a00; background: linear-gradient(135deg, var(--accent), var(--accent-deep)); }
-  .tag-review { color: var(--accent-text); background: transparent; border: 1px solid var(--accent-deep); }
+  .planner .tag-new { color: #1a0a00; background: linear-gradient(135deg, var(--accent), var(--accent-deep)); }
+  .planner .tag-review { color: var(--accent-text); background: transparent; border: 1px solid var(--accent-deep); }
 
-  .why-next { margin: var(--space-2) 0 0 calc(1.4em + var(--space-3)); }
-  .why-next summary {
+  .planner .why-next { margin: var(--space-2) 0 0 calc(1.4em + var(--space-3)); }
+  .planner .why-next summary {
     font-size: 0.78rem;
     color: var(--text-muted);
     cursor: pointer;
     list-style: none;
   }
-  .why-next summary::-webkit-details-marker { display: none; }
-  .why-next summary::before { content: '▸ '; }
-  .why-next[open] summary::before { content: '▾ '; }
-  .why-next p { font-size: 0.85rem; color: var(--text-light); margin-top: var(--space-2); line-height: 1.6; }
+  .planner .why-next summary::-webkit-details-marker { display: none; }
+  .planner .why-next summary::before { content: '▸ '; }
+  .planner .why-next[open] summary::before { content: '▾ '; }
+  .planner .why-next p { font-size: 0.85rem; color: var(--text-light); margin-top: var(--space-2); line-height: 1.6; }
 
-  .blueprint-link {
+  .planner .blueprint-link {
     display: inline-block;
     font-size: 0.8rem;
     font-weight: 600;
@@ -1718,9 +1795,9 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-top: var(--space-2);
   }
 
-  .blueprint-link:hover { text-decoration: underline; }
+  .planner .blueprint-link:hover { text-decoration: underline; }
 
-  .practice-nudge {
+  .planner .practice-nudge {
     margin: var(--space-3) 0 0 calc(1.4em + var(--space-3));
     font-size: 0.85rem;
     color: var(--text-light);
@@ -1733,16 +1810,16 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
      selector would beat the browser's own [hidden]{display:none} rule
      (same trap documented on .topic-checklist above), showing the
      reflection field before a topic is even checked off. */
-  .reflection:not([hidden]) {
+  .planner .reflection:not([hidden]) {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     margin: var(--space-3) 0 0 calc(1.4em + var(--space-3));
   }
 
-  .reflection-label { font-size: 0.8rem; color: var(--text-muted); }
+  .planner .reflection-label { font-size: 0.8rem; color: var(--text-muted); }
 
-  .reflection-input {
+  .planner .reflection-input {
     font-family: var(--font-main);
     font-size: 0.88rem;
     color: var(--text);
@@ -1753,36 +1830,36 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     max-width: 420px;
   }
 
-  .reflection-input:focus { border-color: var(--accent); outline: none; }
+  .planner .reflection-input:focus { border-color: var(--accent); outline: none; }
 
-  .task-empty, .empty-note { color: var(--text-muted); font-size: 0.9rem; }
+  .planner .task-empty, .planner .empty-note { color: var(--text-muted); font-size: 0.9rem; }
 
   /* The "you're done for today" state -- always names the next real
      session rather than leaving the student at a bare empty message. */
-  .next-up-title { font-family: var(--font-display); font-weight: 800; font-size: 1rem; color: var(--text); margin-bottom: var(--space-2); }
-  .next-up-copy { font-size: 0.9rem; color: var(--text-light); line-height: 1.6; }
-  .next-up-copy strong { color: var(--accent-text); }
+  .planner .next-up-title { font-family: var(--font-display); font-weight: 800; font-size: 1rem; color: var(--text); margin-bottom: var(--space-2); }
+  .planner .next-up-copy { font-size: 0.9rem; color: var(--text-light); line-height: 1.6; }
+  .planner .next-up-copy strong { color: var(--accent-text); }
 
-  .week-summary { font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-4); }
-  .week-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
-  .week-task-item { border-bottom: 1px solid var(--border); padding-bottom: var(--space-3); }
-  .week-task-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .week-list .task-action { font-size: 0.75rem; }
-  .week-list .task-topic { font-size: 0.9rem; font-weight: 500; }
-  .week-list .tag { margin-left: auto; }
+  .planner .week-summary { font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-4); }
+  .planner .week-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+  .planner .week-task-item { border-bottom: 1px solid var(--border); padding-bottom: var(--space-3); }
+  .planner .week-task-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .planner .week-list .task-action { font-size: 0.75rem; }
+  .planner .week-list .task-topic { font-size: 0.9rem; font-weight: 500; }
+  .planner .week-list .tag { margin-left: auto; }
 
   /* ---------- Progress ---------- */
-  .progress-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+  .planner .progress-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
 
-  .stat-value { font-family: var(--font-display); font-weight: 900; font-size: 1.4rem; font-variant-numeric: tabular-nums; color: var(--text); }
-  .stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: var(--space-1); line-height: 1.4; }
+  .planner .stat-value { font-family: var(--font-display); font-weight: 900; font-size: 1.4rem; font-variant-numeric: tabular-nums; color: var(--text); }
+  .planner .stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: var(--space-1); line-height: 1.4; }
 
   /* ---------- Route disclosure ---------- */
-  .route-disclosure {
+  .planner .route-disclosure {
     margin-bottom: var(--space-6);
   }
 
-  .route-disclosure > summary {
+  .planner .route-disclosure > summary {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.9rem;
@@ -1792,20 +1869,20 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     padding: var(--space-4) 0;
   }
 
-  .route-disclosure > summary::-webkit-details-marker { display: none; }
-  .route-disclosure > summary::before { content: '▸ '; }
-  .route-disclosure[open] > summary::before { content: '▾ '; }
+  .planner .route-disclosure > summary::-webkit-details-marker { display: none; }
+  .planner .route-disclosure > summary::before { content: '▸ '; }
+  .planner .route-disclosure[open] > summary::before { content: '▾ '; }
 
-  .roadmap-weeks { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
+  .planner .roadmap-weeks { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-3); }
 
-  .roadmap-week {
+  .planner .roadmap-week {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: var(--space-4) var(--space-5);
   }
 
-  .roadmap-week summary {
+  .planner .roadmap-week summary {
     font-family: var(--font-display);
     font-weight: 600;
     font-size: 0.88rem;
@@ -1813,19 +1890,19 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     list-style: none;
   }
 
-  .roadmap-week summary::-webkit-details-marker { display: none; }
+  .planner .roadmap-week summary::-webkit-details-marker { display: none; }
 
-  .roadmap-week ul { list-style: none; padding-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
-  .roadmap-week li { font-size: 0.85rem; color: var(--text-light); }
-  .review-note { color: var(--text-muted); font-size: 0.8rem; }
+  .planner .roadmap-week ul { list-style: none; padding-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+  .planner .roadmap-week li { font-size: 0.85rem; color: var(--text-light); }
+  .planner .review-note { color: var(--text-muted); font-size: 0.8rem; }
 
   /* Screen: hidden. Print: this is the entire page (see @media print
      below) -- built fresh by renderPrintSheet(), not a copy of the
      on-screen sections. */
-  .print-sheet { display: none; }
+  .planner .print-sheet { display: none; }
 
   /* ---------- Adjust panel ---------- */
-  .adjust-panel {
+  .planner .adjust-panel {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1833,11 +1910,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-top: var(--space-6);
   }
 
-  .adjust-panel h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: var(--space-4); }
+  .planner .adjust-panel h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: var(--space-4); }
 
-  .adjust-options { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .planner .adjust-options { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-  .adjust-options button {
+  .planner .adjust-options button {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 0.85rem;
@@ -1850,13 +1927,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     transition: border-color 150ms ease;
   }
 
-  .adjust-options button:hover { border-color: var(--accent); }
+  .planner .adjust-options button:hover { border-color: var(--accent); }
 
-  .adjust-edit { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border); }
-  .adjust-edit .btn-primary { align-self: flex-start; }
+  .planner .adjust-edit { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+  .planner .adjust-edit .btn-primary { align-self: flex-start; }
 
   /* ---------- Start-over dialog ---------- */
-  .start-over-dialog {
+  .planner .start-over-dialog {
     width: min(440px, calc(100vw - var(--space-8)));
     background: var(--surface);
     color: var(--text);
@@ -1866,12 +1943,12 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     padding: var(--space-8);
   }
 
-  .start-over-dialog::backdrop {
+  .planner .start-over-dialog::backdrop {
     background: rgba(1, 39, 72, 0.55);
     backdrop-filter: blur(2px);
   }
 
-  .dialog-eyebrow {
+  .planner .dialog-eyebrow {
     font-family: var(--font-display);
     font-size: 0.7rem;
     font-weight: 700;
@@ -1881,7 +1958,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     margin-bottom: var(--space-2);
   }
 
-  .start-over-dialog h2 {
+  .planner .start-over-dialog h2 {
     font-size: 1.3rem;
     font-weight: 800;
     letter-spacing: -0.02em;
@@ -1889,7 +1966,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     text-wrap: balance;
   }
 
-  .dialog-copy {
+  .planner .dialog-copy {
     font-size: 0.92rem;
     line-height: 1.7;
     color: var(--text-light);
@@ -1900,13 +1977,13 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
      first and carries the page's normal affirmative styling. Clear is
      deliberately calmer, not a second loud button competing for the same
      glance -- a student should have to actually read it. */
-  .dialog-actions {
+  .planner .dialog-actions {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
   }
 
-  .dialog-actions .btn-primary {
+  .planner .dialog-actions .btn-primary {
     width: 100%;
     text-align: center;
     justify-content: center;
@@ -1916,7 +1993,7 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
      for the affirmative action above, so this reads as the lower-key,
      deliberate-click option through plain text instead of a second filled
      button, distinguished by weight rather than color. */
-  .btn-danger {
+  .planner .btn-danger {
     align-self: center;
     font-family: var(--font-main);
     font-weight: 600;
@@ -1931,33 +2008,47 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     transition: color 150ms ease, text-decoration-color 150ms ease;
   }
 
-  .btn-danger:hover { color: var(--text); text-decoration-color: currentColor; }
+  .planner .btn-danger:hover { color: var(--text); text-decoration-color: currentColor; }
 
   @media print {
-    .no-print { display: none !important; }
+    .planner .no-print { display: none !important; }
     .planner { max-width: none; padding: 0; }
-    .print-sheet { display: block; color: #1a1a1a; font-family: var(--font-main); }
+    .planner .print-sheet { display: block; color: #1a1a1a; font-family: var(--font-main); }
 
-    .print-sheet .ps-header { display: flex; align-items: baseline; gap: var(--space-4); border-bottom: 2px solid var(--color-deep-navy); padding-bottom: var(--space-3); margin-bottom: var(--space-5); }
-    .print-sheet .ps-wordmark { font-family: var(--font-display); font-weight: 900; font-size: 1.3rem; letter-spacing: -0.02em; color: var(--color-deep-navy); }
-    .print-sheet .ps-tagline { font-family: var(--font-display); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-gold-deep); }
+    .planner .print-sheet .ps-header { display: flex; align-items: baseline; gap: var(--space-4); border-bottom: 2px solid var(--color-deep-navy); padding-bottom: var(--space-3); margin-bottom: var(--space-5); }
+    .planner .print-sheet .ps-wordmark { font-family: var(--font-display); font-weight: 900; font-size: 1.3rem; letter-spacing: -0.02em; color: var(--color-deep-navy); }
+    .planner .print-sheet .ps-tagline { font-family: var(--font-display); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-gold-deep); }
 
-    .print-sheet h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: var(--space-2); color: var(--color-deep-navy); }
-    .print-sheet h2 { font-size: 1rem; font-weight: 800; margin: var(--space-6) 0 var(--space-3); color: var(--color-deep-navy); border-bottom: 1px solid #ddd; padding-bottom: var(--space-2); }
-    .print-sheet .ps-meta { font-size: 0.85rem; color: #444; margin-bottom: var(--space-1); }
+    .planner .print-sheet h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: var(--space-2); color: var(--color-deep-navy); }
+    .planner .print-sheet h2 { font-size: 1rem; font-weight: 800; margin: var(--space-6) 0 var(--space-3); color: var(--color-deep-navy); border-bottom: 1px solid #ddd; padding-bottom: var(--space-2); }
+    .planner .print-sheet .ps-meta { font-size: 0.85rem; color: #444; margin-bottom: var(--space-1); }
 
-    .print-sheet .ps-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
-    .print-sheet .ps-list li { font-size: 0.88rem; }
-    .print-sheet .ps-subject { font-family: var(--font-display); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-gold-deep); margin-right: var(--space-2); }
+    .planner .print-sheet .ps-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+    .planner .print-sheet .ps-list li { font-size: 0.88rem; }
+    .planner .print-sheet .ps-subject { font-family: var(--font-display); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-gold-deep); margin-right: var(--space-2); }
 
-    .print-sheet table.ps-route { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    .print-sheet table.ps-route td { vertical-align: top; padding: var(--space-3) var(--space-2); border-bottom: 1px solid #ddd; break-inside: avoid; }
-    .print-sheet table.ps-route td:first-child { width: 22%; font-weight: 700; white-space: nowrap; }
-    .print-sheet table.ps-route .ps-dates { font-weight: 400; color: #666; font-size: 0.75rem; }
-    .print-sheet table.ps-route ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
-    .print-sheet table.ps-route em { color: #666; font-style: italic; }
+    .planner .print-sheet table.ps-route { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .planner .print-sheet table.ps-route td { vertical-align: top; padding: var(--space-3) var(--space-2); border-bottom: 1px solid #ddd; break-inside: avoid; }
+    .planner .print-sheet table.ps-route td:first-child { width: 22%; font-weight: 700; white-space: nowrap; }
+    .planner .print-sheet table.ps-route .ps-dates { font-weight: 400; color: #666; font-size: 0.75rem; }
+    .planner .print-sheet table.ps-route ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+    .planner .print-sheet table.ps-route em { color: #666; font-style: italic; }
 
-    .print-sheet .ps-footer { margin-top: var(--space-8); padding-top: var(--space-4); border-top: 2px solid var(--color-deep-navy); font-size: 0.8rem; color: #444; }
-    .print-sheet .ps-footer strong { color: var(--color-deep-navy); }
+    .planner .print-sheet .ps-footer { margin-top: var(--space-8); padding-top: var(--space-4); border-top: 2px solid var(--color-deep-navy); font-size: 0.8rem; color: #444; }
+    .planner .print-sheet .ps-footer strong { color: var(--color-deep-navy); }
+  }
+  /* ---------- Additions: hour chips, practice link, summary ---------- */
+  .planner .task-extra { list-style: none; font-size: 0.88rem; color: var(--text-light); padding-top: var(--space-3); }
+  .planner .hours-chips { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .planner .practice-link { display: inline-block; margin-top: 4px; font-weight: 700; color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+  .planner .review-summary { margin-top: var(--space-6); }
+  .planner .review-summary .mini-label { display: block; margin-bottom: var(--space-2); }
+  .planner input[type="date"], .planner input[type="number"] { font-size: 16px; min-height: 44px; }
+
+  /* Print from the dashboard: only the plan sheet, nothing else on the page. */
+  @media print {
+    body.planner-printing * { visibility: hidden !important; }
+    body.planner-printing .planner .print-sheet, body.planner-printing .planner .print-sheet * { visibility: visible !important; }
+    body.planner-printing .planner .print-sheet { position: absolute; left: 0; top: 0; width: 100%; }
   }
 </style>
