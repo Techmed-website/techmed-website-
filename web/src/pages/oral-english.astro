@@ -1,0 +1,906 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// TECHMED Oral English Guide: the interactive page the book sends students to.
+// Everything on it (Listen, Word Bank, Challenge) is for book owners only and is
+// loaded after sign-in through the oral_* database functions, which check access.
+// Nothing from the book or the question bank is in this file or the built site.
+const BUY_URL = '/resources';
+const PARTS = [
+  { n: 1, name: 'Vowels', short: 'Vowels' },
+  { n: 2, name: 'Consonants', short: 'Consonants' },
+  { n: 3, name: 'Word Stress', short: 'Stress' },
+  { n: 4, name: 'Emphatic Stress', short: 'Emphatic' },
+  { n: 5, name: 'Rhymes', short: 'Rhymes' },
+];
+---
+
+<BaseLayout
+  title="Oral English | TECHMED"
+  description="Hear every sound, word and stress pattern from the TECHMED Oral English Guide in British English, then test yourself with timed challenges."
+>
+  <main class="oe" id="oe" data-buy-url={BUY_URL}>
+    <header class="oe-head">
+      <p class="oe-kicker">TECHMED Oral English Guide</p>
+      <h1>Oral English</h1>
+      <p class="oe-lead">Tap any word to hear it in British English. Then test yourself.</p>
+    </header>
+
+    <!-- Loading -->
+    <section class="oe-state" data-state="loading">
+      <div class="oe-spinner" aria-hidden="true"></div>
+      <p>Opening your Oral English page…</p>
+    </section>
+
+    <!-- Signed out -->
+    <section class="oe-state oe-locked" data-state="signed-out" hidden>
+      <div class="oe-lock" aria-hidden="true">🔒</div>
+      <h2>Sign in to open your Oral English page</h2>
+      <p>This page comes with the TECHMED Oral English Guide. Sign in with the account you used to buy the book.</p>
+      <div class="oe-actions">
+        <a class="oe-btn oe-btn-primary" href="/login?redirect=/oral-english">Sign in</a>
+        <a class="oe-btn" href={BUY_URL}>Get the book</a>
+      </div>
+    </section>
+
+    <!-- Signed in, does not own the book -->
+    <section class="oe-state oe-locked" data-state="locked" hidden>
+      <div class="oe-lock" aria-hidden="true">🔒</div>
+      <h2>This page comes with the Oral English Guide</h2>
+      <p>Get the book to unlock everything here:</p>
+      <ul class="oe-perks">
+        <li><strong>Listen:</strong> every sound, word and sentence from the book, in British English</li>
+        <li><strong>Word Bank:</strong> about 1,500 words you can hear, including every word in the past questions</li>
+        <li><strong>Challenge:</strong> 5 timed quizzes built from 421 JAMB and practice questions</li>
+      </ul>
+      <div class="oe-actions">
+        <a class="oe-btn oe-btn-primary" href={BUY_URL}>Get the book</a>
+      </div>
+      <p class="oe-small">Already bought it? Make sure you are signed in with the same email you paid with. <span data-signed-email></span></p>
+    </section>
+
+    <!-- Could not load -->
+    <section class="oe-state" data-state="error" hidden>
+      <h2>We couldn't open the page</h2>
+      <p>Check your internet connection and try again.</p>
+      <div class="oe-actions"><button class="oe-btn oe-btn-primary" type="button" data-retry>Try again</button></div>
+    </section>
+
+    <!-- Ready -->
+    <section data-state="ready" hidden>
+      <nav class="oe-tabs" role="tablist" aria-label="Oral English sections">
+        <button role="tab" type="button" class="oe-tab" data-tab="listen" aria-selected="true">Listen</button>
+        <button role="tab" type="button" class="oe-tab" data-tab="words" aria-selected="false">Word Bank</button>
+        <button role="tab" type="button" class="oe-tab" data-tab="challenge" aria-selected="false">Challenge</button>
+      </nav>
+
+      <p class="oe-voice-note" data-voice-note hidden></p>
+
+      <!-- LISTEN -->
+      <div class="oe-panel" data-panel="listen">
+        <div class="oe-parts" role="group" aria-label="Choose a part">
+          {PARTS.map((p) => (
+            <button type="button" class="oe-chip-part" data-part={p.n} aria-pressed={p.n === 1 ? 'true' : 'false'}>
+              <span class="oe-part-n">{p.n}</span> {p.short}
+            </button>
+          ))}
+        </div>
+        <div data-listen-body></div>
+      </div>
+
+      <!-- WORD BANK -->
+      <div class="oe-panel" data-panel="words" hidden>
+        <label class="oe-search">
+          <span class="oe-visually-hidden">Search for a word</span>
+          <input type="search" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+                 placeholder="Type a word, e.g. colonel" data-word-search />
+        </label>
+        <p class="oe-small" data-word-count></p>
+        <div class="oe-anyword" data-anyword hidden>
+          <p><strong data-anyword-text></strong> isn't in the Word Bank yet.</p>
+          <button type="button" class="oe-btn" data-anyword-play>▶ Hear it with your phone's voice</button>
+          <p class="oe-small">Your phone's voice is usually right but not always British. Check the word in a dictionary if it matters.</p>
+        </div>
+        <ul class="oe-wordlist" data-wordlist></ul>
+        <div class="oe-actions"><button type="button" class="oe-btn" data-word-more hidden>Show more</button></div>
+      </div>
+
+      <!-- CHALLENGE -->
+      <div class="oe-panel" data-panel="challenge" hidden>
+        <div data-ch-home>
+          <p class="oe-intro">20 questions, 10 minutes. You get a new set and a new option order every time. Try as many times as you like.</p>
+          <div class="oe-chcards" data-ch-cards></div>
+        </div>
+        <div data-ch-run hidden></div>
+        <div data-ch-result hidden></div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  /* Global (not Astro-scoped): most of this page is built by the script below,
+     and scoped styles never reach script-created elements. Every class is oe- prefixed. */
+  .oe {
+    --oe-max: 760px;
+    max-width: var(--oe-max);
+    margin: 0 auto;
+    padding: 24px 16px 64px;
+    color: var(--text);
+  }
+  .oe-head { margin-bottom: 20px; }
+  .oe-kicker {
+    font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-text); font-weight: 700; margin: 0 0 4px;
+  }
+  .oe h1 { font-family: var(--font-display); font-size: clamp(1.8rem, 6vw, 2.4rem); margin: 0 0 6px; }
+  .oe-lead { color: var(--text-light); margin: 0; font-size: 1.05rem; }
+  .oe h2 { font-family: var(--font-display); font-size: 1.3rem; margin: 0 0 8px; }
+  .oe h3 { font-family: var(--font-display); font-size: 1.05rem; margin: 24px 0 10px; }
+  .oe-small { font-size: 0.88rem; color: var(--text-muted); }
+  .oe-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .oe-state { text-align: center; padding: 40px 8px; }
+  .oe-locked { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px 20px; box-shadow: var(--card-shadow); }
+  .oe-lock { font-size: 2.2rem; margin-bottom: 8px; }
+  .oe-perks { text-align: left; max-width: 520px; margin: 16px auto; padding-left: 20px; line-height: 1.6; }
+  .oe-spinner { width: 36px; height: 36px; margin: 0 auto 12px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent); animation: oe-spin 0.9s linear infinite; }
+  @keyframes oe-spin { to { transform: rotate(360deg); } }
+
+  .oe-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+  .oe-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 46px; padding: 10px 18px; border-radius: var(--radius-full);
+    border: 1px solid var(--border); background: var(--surface-raised); color: var(--text);
+    font: 600 1rem var(--font-main); text-decoration: none; cursor: pointer;
+  }
+  .oe-btn:hover { border-color: var(--accent); }
+  .oe-btn-primary { background: var(--accent); color: #012748; border-color: var(--accent); }
+  .oe-btn-primary:hover { background: var(--accent-light); }
+  .oe-btn:disabled { opacity: 0.55; cursor: default; }
+
+  /* Tabs */
+  .oe-tabs {
+    position: sticky; top: 88px; z-index: 5;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    padding: 4px; margin-bottom: 16px; border-radius: var(--radius-full);
+    background: var(--surface-raised); border: 1px solid var(--border);
+  }
+  .oe-tab {
+    min-height: 44px; border: 0; border-radius: var(--radius-full); background: transparent;
+    color: var(--text-light); font: 700 0.98rem var(--font-main); cursor: pointer;
+  }
+  .oe-tab[aria-selected='true'] { background: var(--accent); color: #012748; }
+  .oe-voice-note { font-size: 0.85rem; color: var(--text-muted); background: var(--surface-raised); border-radius: var(--radius); padding: 8px 12px; }
+
+  /* Listen */
+  .oe-parts { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; scrollbar-width: none; }
+  .oe-parts::-webkit-scrollbar { display: none; }
+  .oe-chip-part {
+    flex: 0 0 auto; min-height: 42px; padding: 6px 14px; border-radius: var(--radius-full);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font: 600 0.95rem var(--font-main); cursor: pointer; white-space: nowrap;
+  }
+  .oe-chip-part[aria-pressed='true'] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .oe-part-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-raised); font-size: 0.8rem; margin-right: 4px; }
+  .oe-intro { color: var(--text-light); margin: 8px 0 4px; line-height: 1.55; }
+
+  .oe-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .oe-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--card-shadow); }
+  .oe-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .oe-ipa { font: 700 1.5rem/1 'Charis SIL', 'Doulos SIL', 'Gentium Plus', 'Noto Serif', serif; color: var(--accent-text); min-width: 3.2ch; }
+  .oe-card-label { font-size: 0.78rem; color: var(--text-muted); margin: 8px 0 4px; }
+
+  .oe-words { display: flex; flex-wrap: wrap; gap: 8px; }
+  .oe-word {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 6px 12px;
+    border-radius: var(--radius-full); border: 1px solid var(--border); background: var(--surface-raised);
+    color: var(--text); font: 600 1.05rem var(--font-main); cursor: pointer; text-align: left;
+  }
+  .oe-word::before { content: '▶'; font-size: 0.7em; color: var(--accent-text); }
+  .oe-word.is-key { font-size: 1.15rem; border-color: var(--accent); }
+  .oe-word.is-playing { background: var(--accent); color: #012748; border-color: var(--accent); }
+  .oe-word.is-playing::before { color: #012748; }
+  .oe-playall { font-size: 0.85rem; min-height: 36px; padding: 4px 12px; }
+  .oe-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .oe-vs { color: var(--text-muted); font-size: 0.85rem; }
+  .oe-group { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .oe-group-title { font-weight: 700; margin: 0 0 8px; }
+
+  .oe-sentences { list-style: none; padding: 0; margin: 0; }
+  .oe-sentence {
+    display: flex; gap: 12px; align-items: center; width: 100%; padding: 14px 12px; margin-bottom: 8px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    color: var(--text); font: 500 1.08rem/1.45 var(--font-main); text-align: left; cursor: pointer;
+  }
+  .oe-sentence .oe-play-dot { flex: 0 0 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-raised); color: var(--accent-text); font-size: 0.8rem; }
+  .oe-sentence.is-playing { border-color: var(--accent); }
+  .oe-sentence.is-playing .oe-play-dot { background: var(--accent); color: #012748; }
+  .oe-sentence b { color: var(--accent-text); }
+
+  /* Word bank */
+  .oe-search input {
+    width: 100%; min-height: 52px; padding: 12px 16px; font: 500 1.1rem var(--font-main);
+    border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  .oe-search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oe-anyword { background: var(--surface-raised); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0; }
+  .oe-anyword p { margin: 0 0 8px; }
+  .oe-wordlist { list-style: none; padding: 0; margin: 8px 0 0; }
+  .oe-wordrow { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  .oe-wordrow .oe-wordbtn {
+    flex: 1; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 4px;
+    background: none; border: 0; color: var(--text); text-align: left; cursor: pointer; font: inherit;
+  }
+  .oe-wordbtn .oe-play-dot { flex: 0 0 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-raised); color: var(--accent-text); font-size: 0.8rem; }
+  .oe-wordbtn.is-playing .oe-play-dot { background: var(--accent); color: #012748; }
+  .oe-wordbtn .oe-w { font-weight: 700; font-size: 1.12rem; }
+  .oe-wordbtn .oe-n { display: block; font-size: 0.85rem; color: var(--text-muted); font-weight: 400; }
+  .oe-flag { flex: 0 0 auto; background: none; border: 0; color: var(--text-muted); font-size: 0.8rem; padding: 8px; cursor: pointer; text-decoration: underline; }
+
+  /* Challenge home */
+  .oe-chcards { display: grid; gap: 12px; margin-top: 12px; }
+  .oe-chcard { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--card-shadow); }
+  .oe-chcard .oe-part-n { width: 40px; height: 40px; font-size: 1.05rem; margin: 0; flex: 0 0 auto; }
+  .oe-chcard-body { flex: 1; min-width: 0; }
+  .oe-chcard-body strong { display: block; font-size: 1.08rem; }
+  .oe-chcard-body span { font-size: 0.86rem; color: var(--text-muted); }
+
+  /* Challenge run */
+  .oe-runbar {
+    position: sticky; top: 88px; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--surface-dark); color: var(--text-on-dark-surface); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px;
+  }
+  .oe-timer { font: 700 1.25rem var(--font-display); font-variant-numeric: tabular-nums; }
+  .oe-timer.is-low { color: #ff8a80; }
+  .oe-q { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 16px; box-shadow: var(--card-shadow); }
+  .oe-src { display: inline-block; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-text); background: var(--surface-raised); border-radius: var(--radius-full); padding: 4px 10px; margin-bottom: 10px; }
+  .oe-instr { font-size: 1rem; color: var(--text-light); margin: 0 0 12px; line-height: 1.5; }
+  .oe-prompt { font: 700 1.35rem/1.4 var(--font-main); margin: 0 0 16px; } /* >= 20px */
+  .oe-prompt u { text-decoration-thickness: 3px; text-underline-offset: 4px; font-weight: 800; color: var(--accent-text); }
+  .oe-opts { display: grid; gap: 10px; }
+  .oe-opt {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 12px 14px;
+    border: 2px solid var(--border); border-radius: var(--radius); background: var(--surface-raised);
+    color: var(--text); font: 600 1.15rem/1.35 var(--font-main); text-align: left; cursor: pointer; /* >= 18px */
+  }
+  .oe-opt .oe-letter { flex: 0 0 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--border); font-size: 0.95rem; }
+  .oe-opt[aria-checked='true'] { border-color: var(--accent); }
+  .oe-opt[aria-checked='true'] .oe-letter { background: var(--accent); border-color: var(--accent); color: #012748; }
+  .oe-opt .oe-opt-text { text-transform: none; }
+  .oe-nav { display: flex; gap: 10px; justify-content: space-between; margin-top: 16px; }
+  .oe-dots { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 16px; }
+  .oe-dot { min-height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-light); font: 600 0.85rem var(--font-main); cursor: pointer; }
+  .oe-dot.is-done { background: var(--surface-raised); color: var(--text); border-color: var(--text-muted); }
+  .oe-dot.is-here { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .oe-submit-row { margin-top: 18px; }
+  .oe-submit-row .oe-btn { width: 100%; }
+  .oe-msg { margin-top: 10px; font-size: 0.92rem; color: var(--text-light); text-align: center; }
+
+  /* Results */
+  .oe-score { text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px 16px; margin-bottom: 16px; }
+  .oe-score-num { font: 800 3rem/1 var(--font-display); }
+  .oe-score-num small { font-size: 1.3rem; color: var(--text-muted); }
+  .oe-review { list-style: none; padding: 0; margin: 0; counter-reset: q; }
+  .oe-review > li { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .oe-review .oe-prompt { font-size: 1.2rem; margin-bottom: 10px; }
+  .oe-ropt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 6px; border: 1px solid var(--border); font-size: 1.08rem; }
+  .oe-ropt.is-correct { border-color: #2e7d32; background: rgba(46, 125, 50, 0.12); }
+  .oe-ropt.is-wrong { border-color: #c62828; background: rgba(198, 40, 40, 0.1); }
+  .oe-ropt .oe-mark { flex: 0 0 auto; font-weight: 800; width: 1.4em; text-align: center; }
+  .oe-ropt .oe-opt-text { flex: 1; }
+  .oe-ropt .oe-mini { flex: 0 0 auto; min-height: 34px; padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid var(--border); background: var(--surface-raised); color: var(--accent-text); cursor: pointer; font: 600 0.85rem var(--font-main); }
+  .oe-ropt .oe-mini.is-playing { background: var(--accent); color: #012748; }
+  .oe-expl { margin: 10px 0 0; padding: 10px 12px; background: var(--surface-raised); border-radius: var(--radius-sm); line-height: 1.5; }
+  .oe-tag { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); margin-left: 6px; }
+  .oe-tag.ok { background: rgba(46, 125, 50, 0.15); color: #2e7d32; }
+  .oe-tag.no { background: rgba(198, 40, 40, 0.12); color: #c62828; }
+  .oe-tag.skip { background: var(--surface-raised); color: var(--text-muted); }
+
+  @media (min-width: 640px) {
+    .oe { padding-top: 40px; }
+    .oe-opts { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+
+<script>
+  import { getSupabase } from '../lib/supabase';
+  import { clipKey, clipText, spokenText } from '../lib/oralAudioKey.js';
+
+  type Word = { w: string; n: string | null };
+  type Stats = { attempts: number; best: number; last: number; total: number };
+  type PageData = {
+    listen: Record<string, any>;
+    words: Word[];
+    banks: Record<string, number>;
+    stats: Record<string, Stats>;
+  };
+  type RunQ = { source: string; instruction: string; prompt: string; options: string[] };
+  type Attempt = { attempt_id: string; part: number; deadline: string; server_now: string; questions: RunQ[] };
+  type ResultQ = RunQ & { correct: number; chosen: number | null; explanation: string };
+  type Result = { attempt_id: string; part: number; score: number; total: number; late: boolean; questions: ResultQ[] };
+
+  const PART_NAMES: Record<number, string> = { 1: 'Vowels', 2: 'Consonants', 3: 'Word Stress', 4: 'Emphatic Stress', 5: 'Rhymes' };
+  const root = document.getElementById('oe') as HTMLElement;
+  const supabase = getSupabase();
+  const $ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => el.querySelector(sel) as T;
+  const $$ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => Array.from(el.querySelectorAll(sel)) as T[];
+
+  function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, any> = {}, ...kids: (Node | string | null | undefined)[]) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+      else if (k === 'dataset') Object.assign(node.dataset, v);
+      else node.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (const kid of kids) if (kid != null) node.append(kid);
+    return node;
+  }
+
+  function showState(name: string) {
+    $$('[data-state]').forEach((s) => (s.hidden = s.dataset.state !== name));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Audio: recorded British English clips when they exist, otherwise the phone's
+  // own voice. Everything starts inside the tap handler (iOS requires that).
+  // ---------------------------------------------------------------------------
+  const Audio_ = {
+    clips: new Set<string>(),
+    current: null as HTMLAudioElement | null,
+    playingEl: null as HTMLElement | null,
+    queue: [] as { text: string; el?: HTMLElement }[],
+    gbVoice: null as SpeechSynthesisVoice | null,
+
+    async loadManifest() {
+      try {
+        const res = await fetch('/audio/oral/manifest.json', { cache: 'no-cache' });
+        if (res.ok) {
+          const m = await res.json();
+          for (const k of m.keys || []) this.clips.add(k);
+        }
+      } catch { /* no recorded clips yet: phone voice only */ }
+      this.pickVoice();
+      if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => this.pickVoice();
+    },
+    pickVoice() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = speechSynthesis.getVoices();
+      this.gbVoice =
+        voices.find((v) => v.lang === 'en-GB' && /google|natural|neural/i.test(v.name)) ||
+        voices.find((v) => v.lang.replace('_', '-') === 'en-GB') ||
+        voices.find((v) => /^en/i.test(v.lang)) || null;
+    },
+    hasClip(text: string) { return this.clips.has(clipKey(text)); },
+    mark(node?: HTMLElement | null) {
+      this.playingEl?.classList.remove('is-playing');
+      this.playingEl = node || null;
+      this.playingEl?.classList.add('is-playing');
+    },
+    stop() {
+      this.queue = [];
+      if (this.current) { this.current.pause(); this.current = null; }
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      this.mark(null);
+    },
+    play(text: string, node?: HTMLElement) { this.stop(); this.playSeq([{ text, el: node }]); },
+    playSeq(items: { text: string; el?: HTMLElement }[]) {
+      this.stop();
+      this.queue = items.slice();
+      this.next();
+    },
+    next() {
+      const item = this.queue.shift();
+      if (!item) { this.mark(null); return; }
+      this.mark(item.el);
+      const done = () => setTimeout(() => this.next(), 250);
+      if (this.hasClip(item.text)) {
+        const a = new Audio(`/audio/oral/${clipKey(item.text)}.mp3`);
+        this.current = a;
+        a.onended = done;
+        a.onerror = () => { this.current = null; this.speak(item.text, done); };
+        a.play().catch(() => { this.current = null; this.speak(item.text, done); });
+      } else {
+        this.speak(item.text, done);
+      }
+    },
+    speak(text: string, done: () => void) {
+      if (!('speechSynthesis' in window)) { done(); return; }
+      const u = new SpeechSynthesisUtterance(spokenText(text));
+      u.lang = 'en-GB';
+      if (this.gbVoice) u.voice = this.gbVoice;
+      u.rate = 0.9;
+      u.onend = done;
+      u.onerror = done;
+      speechSynthesis.speak(u);
+    },
+  };
+
+  /** A tappable word chip. */
+  function wordBtn(text: string, extraClass = '') {
+    const b = el('button', { type: 'button', class: `oe-word ${extraClass}`.trim(), text: clipText(text) });
+    b.addEventListener('click', () => Audio_.play(text, b));
+    return b;
+  }
+  function wordsRow(list: string[]) { return el('div', { class: 'oe-words' }, ...list.map((w) => wordBtn(w))); }
+  function playAllBtn(items: string[], container: () => HTMLElement[]) {
+    const b = el('button', { type: 'button', class: 'oe-btn oe-playall', text: '▶ Play all' });
+    b.addEventListener('click', () => {
+      const els = container();
+      Audio_.playSeq(items.map((t, i) => ({ text: t, el: els[i] })));
+    });
+    return b;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Listen
+  // ---------------------------------------------------------------------------
+  let DATA: PageData;
+
+  function soundCards(cards: any[]) {
+    return el('div', { class: 'oe-cards' }, ...cards.map((c) => {
+      const all = [c.key_word, ...(c.words || [])];
+      const key = wordBtn(c.key_word, 'is-key');
+      const examples = wordsRow(c.words || []);
+      const card = el('div', { class: 'oe-card' },
+        el('div', { class: 'oe-card-top' }, el('span', { class: 'oe-ipa', text: c.ipa }), key),
+        el('p', { class: 'oe-card-label', text: 'Examples' }), examples);
+      if (c.silent?.length) {
+        card.append(el('p', { class: 'oe-card-label', text: 'Silent h (no /h/ sound)' }), wordsRow(c.silent));
+      }
+      card.append(el('div', { class: 'oe-actions', style: 'justify-content:flex-start;margin-top:10px' },
+        playAllBtn(all, () => [key, ...$$('.oe-word', examples)])));
+      return card;
+    }));
+  }
+  function pairs(list: string[][]) {
+    return el('div', {}, ...list.map((p) =>
+      el('div', { class: 'oe-pair' }, ...p.flatMap((w, i) => (i ? [el('span', { class: 'oe-vs', text: 'vs' }), wordBtn(w)] : [wordBtn(w)])))));
+  }
+  function groups(obj: Record<string, string[]>, labels: Record<string, string>) {
+    return el('div', {}, ...Object.keys(labels).filter((k) => obj?.[k]).map((k) =>
+      el('div', { class: 'oe-group' }, el('p', { class: 'oe-group-title', text: labels[k] }), wordsRow(obj[k]))));
+  }
+  function emphSentence(s: string) {
+    const b = el('button', { type: 'button', class: 'oe-sentence' }, el('span', { class: 'oe-play-dot', text: '▶' }));
+    const span = el('span');
+    // Bold the capitalised (stressed) word(s); everything else stays plain text.
+    for (const part of clipText(s).split(/(\b[A-Z][A-Z']+(?:\s[A-Z][A-Z']+)?\b)/)) {
+      if (!part) continue;
+      span.append(/^[A-Z][A-Z']+(?:\s[A-Z][A-Z']+)?$/.test(part) ? el('b', { text: part }) : document.createTextNode(part));
+    }
+    b.append(span);
+    b.addEventListener('click', () => Audio_.play(s, b));
+    return el('li', {}, b);
+  }
+
+  function renderListen(part: number) {
+    const L = DATA.listen;
+    const body = $('[data-listen-body]');
+    body.replaceChildren();
+    const intro = (t: string) => el('p', { class: 'oe-intro', text: t });
+    const h = (t: string) => el('h3', { text: t });
+    if (part === 1) {
+      body.append(
+        intro('British English has 20 vowel sounds. Tap the key word, then the examples. Listen for the sound they share.'),
+        soundCards(L.part1_vowel_cards || []),
+        h('Words that lie'), intro('The spelling suggests one sound, but the word uses another.'), wordsRow(L.part1_words_that_lie || []),
+        h('Same spelling, different sound'), pairs(L.part1_same_spelling_pairs || []),
+        h('Contrast pairs'), intro('Hear the difference between these close sounds.'), pairs(L.part1_contrast_pairs || []),
+      );
+    } else if (part === 2) {
+      body.append(
+        intro('Tap each key word, then the examples. Listen for the consonant sound they share.'),
+        soundCards(L.part2_consonant_cards || []),
+        h('Twin pairs'), intro('The same mouth position: one is voiced (buzz), one is not.'), pairs(L.part2_twin_pairs || []),
+        h('-ed endings'), groups(L.part2_ed_endings, { t: '/t/  e.g. asked', d: '/d/  e.g. played', id: '/ɪd/  e.g. wanted' }),
+        h('-s endings'), groups(L.part2_s_endings, { s: '/s/  e.g. cats', z: '/z/  e.g. dogs', iz: '/ɪz/  e.g. buses' }),
+        h('Silent letters'), intro('Some letters are written but never said.'), wordsRow(L.part2_silent_letters || []),
+      );
+    } else if (part === 3) {
+      body.append(
+        intro('The syllable in CAPITALS is the strong one. Listen for it: it is louder, longer and higher.'),
+        wordsRow(L.part3_words || []),
+      );
+    } else if (part === 4) {
+      body.append(
+        intro('The word in CAPITALS carries the emphatic stress. Listen to how the meaning changes when the stress moves.'),
+        el('ul', { class: 'oe-sentences' }, ...(L.part4_sentences || []).map(emphSentence)),
+      );
+    } else if (part === 5) {
+      body.append(
+        intro('Words that look alike don\'t always rhyme, and words that look different sometimes do. Listen to each set and decide: do they really rhyme?'),
+        pairs(L.part5_rhyme_sets || []),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Word Bank
+  // ---------------------------------------------------------------------------
+  const PAGE_SIZE = 80;
+  let wordLimit = PAGE_SIZE;
+  const plain = (s: string) => s.toLowerCase().replace(/[-—]/g, '').replace(/\s*\(.*\)\s*$/, '').trim();
+
+  function renderWords() {
+    const input = $<HTMLInputElement>('[data-word-search]');
+    const q = plain(input.value);
+    const list = $('[data-wordlist]');
+    let matches = DATA.words;
+    if (q) {
+      const starts = DATA.words.filter((w) => plain(w.w).startsWith(q));
+      const has = DATA.words.filter((w) => !plain(w.w).startsWith(q) && plain(w.w).includes(q));
+      matches = [...starts, ...has];
+    }
+    $('[data-word-count]').textContent = q
+      ? `${matches.length} ${matches.length === 1 ? 'word' : 'words'} found`
+      : `${DATA.words.length.toLocaleString()} words. Tap any word to hear it.`;
+
+    const exact = q && DATA.words.some((w) => plain(w.w) === q);
+    const any = $('[data-anyword]');
+    any.hidden = !q || exact || q.length < 2;
+    $('[data-anyword-text]').textContent = input.value.trim();
+
+    list.replaceChildren(...matches.slice(0, wordLimit).map((w) => {
+      const btn = el('button', { type: 'button', class: 'oe-wordbtn' },
+        el('span', { class: 'oe-play-dot', text: '▶' }),
+        el('span', {}, el('span', { class: 'oe-w', text: w.w }), w.n ? el('span', { class: 'oe-n', text: w.n }) : null));
+      btn.addEventListener('click', () => Audio_.play(w.w, btn));
+      const flag = el('button', { type: 'button', class: 'oe-flag', text: 'Sounds wrong?' });
+      flag.addEventListener('click', () => reportWord(w.w, flag));
+      return el('li', { class: 'oe-wordrow' }, btn, flag);
+    }));
+    $('[data-word-more]').hidden = matches.length <= wordLimit;
+  }
+
+  async function reportWord(word: string, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    const { data, error } = await supabase.rpc('oral_report', { p_text: word, p_note: null });
+    btn.textContent = error || data === false ? 'Try later' : 'Thanks, reported';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Challenge
+  // ---------------------------------------------------------------------------
+  let run: { att: Attempt; answers: (number | null)[]; i: number; offset: number; timer?: number; submitting?: boolean } | null = null;
+  const saveKey = (id: string) => `oe-answers-${id}`;
+  const store = {
+    get(id: string) { try { return JSON.parse(localStorage.getItem(saveKey(id)) || 'null'); } catch { return null; } },
+    set(id: string, v: unknown) { try { localStorage.setItem(saveKey(id), JSON.stringify(v)); } catch { /* private mode */ } },
+    del(id: string) { try { localStorage.removeItem(saveKey(id)); } catch { /* ignore */ } },
+  };
+
+  function promptNode(text: string, cls = 'oe-prompt') {
+    // Only <u>…</u> is allowed: everything else is plain text.
+    const p = el('p', { class: cls });
+    const parts = String(text).split(/(<u>|<\/u>)/);
+    let under = false;
+    for (const part of parts) {
+      if (part === '<u>') { under = true; continue; }
+      if (part === '</u>') { under = false; continue; }
+      if (!part) continue;
+      p.append(under ? el('u', { text: part }) : document.createTextNode(part));
+    }
+    return p;
+  }
+  const sourceLabel = (s: string) => (s === 'JAMB' ? 'JAMB' : 'TECHMED Practice Question');
+
+  function renderChallengeHome() {
+    $('[data-ch-home]').hidden = false;
+    $('[data-ch-run]').hidden = true;
+    $('[data-ch-result]').hidden = true;
+    const cards = $('[data-ch-cards]');
+    cards.replaceChildren(...[1, 2, 3, 4, 5].map((n) => {
+      const s = DATA.stats[String(n)];
+      const bank = DATA.banks[String(n)] || 0;
+      const meta = s
+        ? `Best ${s.best}/${s.total} · Last ${s.last}/${s.total} · ${s.attempts} ${s.attempts === 1 ? 'try' : 'tries'}`
+        : `${bank} questions in the bank · not tried yet`;
+      const start = el('button', { type: 'button', class: 'oe-btn oe-btn-primary', text: s ? 'Try again' : 'Start' });
+      start.addEventListener('click', () => startChallenge(n, start));
+      return el('div', { class: 'oe-chcard', id: `challenge-${n}` },
+        el('span', { class: 'oe-part-n', text: String(n) }),
+        el('div', { class: 'oe-chcard-body' }, el('strong', { text: PART_NAMES[n] }), el('span', { text: meta })),
+        start);
+    }));
+  }
+
+  async function startChallenge(part: number, btn?: HTMLButtonElement) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+    const { data, error } = await supabase.rpc('oral_start', { p_part: part });
+    if (error || !data) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+      alert('We could not start the challenge. Check your connection and try again.');
+      return;
+    }
+    const att = data as Attempt;
+    const saved = store.get(att.attempt_id);
+    run = {
+      att,
+      answers: Array.isArray(saved) && saved.length === att.questions.length ? saved : att.questions.map(() => null),
+      i: 0,
+      offset: new Date(att.server_now).getTime() - Date.now(),
+    };
+    Audio_.stop();
+    $('[data-ch-home]').hidden = true;
+    $('[data-ch-result]').hidden = true;
+    $('[data-ch-run]').hidden = false;
+    renderQuestion();
+    tick();
+    run.timer = window.setInterval(tick, 1000);
+    window.scrollTo({ top: root.offsetTop, behavior: 'smooth' });
+  }
+
+  function secondsLeft() {
+    if (!run) return 0;
+    return Math.max(0, Math.round((new Date(run.att.deadline).getTime() - (Date.now() + run.offset)) / 1000));
+  }
+  function tick() {
+    if (!run) return;
+    const left = secondsLeft();
+    const t = $('[data-timer]');
+    if (t) {
+      t.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      t.classList.toggle('is-low', left <= 60);
+    }
+    if (left <= 0) submitChallenge(true);
+  }
+
+  function renderQuestion() {
+    if (!run) return;
+    const { att, answers, i } = run;
+    const q = att.questions[i];
+    const box = $('[data-ch-run]');
+    const answered = answers.filter((a) => a !== null).length;
+    const opts = el('div', { class: 'oe-opts', role: 'radiogroup', 'aria-label': 'Options' },
+      ...q.options.map((o, k) => {
+        const b = el('button', { type: 'button', class: 'oe-opt', role: 'radio', 'aria-checked': answers[i] === k ? 'true' : 'false' },
+          el('span', { class: 'oe-letter', text: 'ABCDE'[k] }), el('span', { class: 'oe-opt-text', text: o }));
+        b.addEventListener('click', () => {
+          run!.answers[i] = k;
+          store.set(att.attempt_id, run!.answers);
+          renderQuestion();
+        });
+        return b;
+      }));
+    const prev = el('button', { type: 'button', class: 'oe-btn', text: '← Previous', disabled: i === 0 });
+    prev.addEventListener('click', () => { run!.i--; renderQuestion(); });
+    const next = el('button', { type: 'button', class: 'oe-btn', text: i === att.questions.length - 1 ? 'Review' : 'Next →' });
+    next.addEventListener('click', () => {
+      if (i < att.questions.length - 1) { run!.i++; renderQuestion(); }
+      else $('[data-submit]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const dots = el('div', { class: 'oe-dots', 'aria-label': 'Jump to a question' },
+      ...att.questions.map((_, k) => {
+        const d = el('button', { type: 'button', class: `oe-dot${answers[k] !== null ? ' is-done' : ''}${k === i ? ' is-here' : ''}`, text: String(k + 1), 'aria-label': `Question ${k + 1}` });
+        d.addEventListener('click', () => { run!.i = k; renderQuestion(); });
+        return d;
+      }));
+    const submit = el('button', { type: 'button', class: 'oe-btn oe-btn-primary', 'data-submit': true, text: `Submit (${answered}/${att.questions.length} answered)` });
+    submit.addEventListener('click', () => {
+      const missing = att.questions.length - run!.answers.filter((a) => a !== null).length;
+      if (missing > 0 && !confirm(`You have ${missing} unanswered ${missing === 1 ? 'question' : 'questions'}. Submit anyway?`)) return;
+      submitChallenge(false);
+    });
+
+    box.replaceChildren(
+      el('div', { class: 'oe-runbar' },
+        el('span', { text: `${PART_NAMES[att.part]} · ${i + 1} of ${att.questions.length}` }),
+        el('span', { class: 'oe-timer', 'data-timer': true, 'aria-live': 'off' })),
+      el('div', { class: 'oe-q' },
+        el('span', { class: 'oe-src', text: sourceLabel(q.source) }),
+        el('p', { class: 'oe-instr', text: q.instruction }),
+        q.prompt ? promptNode(q.prompt) : null,
+        opts),
+      el('div', { class: 'oe-nav' }, prev, next),
+      dots,
+      el('div', { class: 'oe-submit-row' }, submit),
+      el('p', { class: 'oe-msg', 'data-run-msg': true }),
+    );
+    tick();
+  }
+
+  async function submitChallenge(timeUp: boolean) {
+    if (!run || run.submitting) return;
+    run.submitting = true;
+    window.clearInterval(run.timer);
+    const msg = $('[data-run-msg]');
+    const btn = $<HTMLButtonElement>('[data-submit]');
+    if (btn) { btn.disabled = true; btn.textContent = timeUp ? "Time's up. Marking…" : 'Marking…'; }
+    $$<HTMLButtonElement>('.oe-opt').forEach((b) => (b.disabled = true));
+
+    // Keep trying: a dropped connection must never lose the student's answers.
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const { data, error } = await supabase.rpc('oral_submit', { p_attempt: run.att.attempt_id, p_answers: run.answers });
+      if (!error && data) {
+        store.del(run.att.attempt_id);
+        const r = data as Result;
+        const prev = DATA.stats[String(r.part)];
+        DATA.stats[String(r.part)] = {
+          attempts: (prev?.attempts || 0) + 1,
+          best: Math.max(prev?.best ?? 0, r.score),
+          last: r.score,
+          total: r.total,
+        };
+        run = null;
+        renderResult(r);
+        return;
+      }
+      if (msg) msg.textContent = 'Connection problem. Your answers are saved on this phone. Retrying…';
+      await new Promise((res) => setTimeout(res, 2000 * (attempt + 1)));
+    }
+    run.submitting = false;
+    if (msg) msg.textContent = 'Still no connection. Your answers are saved. Tap Submit again when you are back online.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit again'; }
+  }
+
+  function scoreLine(score: number, total: number) {
+    const pct = score / total;
+    if (pct >= 0.85) return 'Excellent. You really know this part.';
+    if (pct >= 0.65) return 'Good work. Look at the ones you missed, then try a fresh set.';
+    if (pct >= 0.4) return 'You are getting there. Go back to Listen for this part, then try again.';
+    return 'Keep going. Read the explanations below, listen to the words, and try again.';
+  }
+
+  function renderResult(r: Result) {
+    Audio_.stop();
+    $('[data-ch-run]').hidden = true;
+    const box = $('[data-ch-result]');
+    box.hidden = false;
+    const again = el('button', { type: 'button', class: 'oe-btn oe-btn-primary', text: 'Try a new set' });
+    again.addEventListener('click', () => startChallenge(r.part, again));
+    const back = el('button', { type: 'button', class: 'oe-btn', text: 'All challenges' });
+    back.addEventListener('click', renderChallengeHome);
+    const listen = el('button', { type: 'button', class: 'oe-btn', text: `Listen: ${PART_NAMES[r.part]}` });
+    listen.addEventListener('click', () => { setTab('listen'); setPart(r.part); });
+
+    const items = r.questions.map((q, n) => {
+      const patterned = r.part === 3 && q.options.some((o) => /[a-z]/.test(o) && /[A-Z]{2}|[a-z][A-Z]/.test(o.replace(/\s*\(.*\)$/, '')));
+      const tag = q.chosen === null ? el('span', { class: 'oe-tag skip', text: 'Not answered' })
+        : q.chosen === q.correct ? el('span', { class: 'oe-tag ok', text: 'Correct' })
+        : el('span', { class: 'oe-tag no', text: 'Wrong' });
+      const rows = q.options.map((o, k) => {
+        const cls = k === q.correct ? 'oe-ropt is-correct' : k === q.chosen ? 'oe-ropt is-wrong' : 'oe-ropt';
+        const mark = k === q.correct ? '✓' : k === q.chosen ? '✗' : '';
+        // Hear the words (not in Emphatic Stress, whose options are questions;
+        // and in stress-pattern questions only the correct pattern is safe to hear).
+        const canHear = r.part !== 4 && !/ of the above$/i.test(o) && (!patterned || k === q.correct);
+        let mini: HTMLButtonElement | null = null;
+        if (canHear) {
+          mini = el('button', { type: 'button', class: 'oe-mini', text: '▶ Hear', 'aria-label': `Hear ${o}` });
+          mini.addEventListener('click', () => Audio_.play(o, mini!));
+        }
+        return el('div', { class: cls }, el('span', { class: 'oe-mark', text: mark }), el('span', { class: 'oe-opt-text', text: o }), mini);
+      });
+      let hearPrompt: HTMLButtonElement | null = null;
+      if (q.prompt && !/^the sound /i.test(q.prompt) && !/\?$/.test(q.prompt)) {
+        hearPrompt = el('button', { type: 'button', class: 'oe-btn oe-playall', text: r.part === 4 ? '▶ Hear the sentence' : '▶ Hear the word' });
+        hearPrompt.addEventListener('click', () => Audio_.play(q.prompt, hearPrompt!));
+      }
+      return el('li', {},
+        el('p', { class: 'oe-small', style: 'margin:0 0 6px' }, `Question ${n + 1} · ${sourceLabel(q.source)}`, tag),
+        el('p', { class: 'oe-instr', text: q.instruction }),
+        q.prompt ? promptNode(q.prompt) : null,
+        hearPrompt ? el('div', { style: 'margin:-4px 0 10px' }, hearPrompt) : null,
+        ...rows,
+        el('p', { class: 'oe-expl', text: q.explanation }));
+    });
+
+    box.replaceChildren(
+      el('div', { class: 'oe-score' },
+        el('p', { class: 'oe-small', style: 'margin:0 0 6px', text: `${PART_NAMES[r.part]} challenge` }),
+        el('div', { class: 'oe-score-num' }, String(r.score), el('small', { text: ` / ${r.total}` })),
+        el('p', { text: scoreLine(r.score, r.total) }),
+        r.late ? el('p', { class: 'oe-small', text: 'Submitted after the time ran out.' }) : null,
+        el('div', { class: 'oe-actions' }, again, listen, back)),
+      el('h3', { text: 'Answers and explanations' }),
+      el('ol', { class: 'oe-review' }, ...items),
+      el('div', { class: 'oe-actions' }, again.cloneNode(true) as HTMLElement),
+    );
+    // cloneNode drops listeners; re-wire the bottom "Try a new set".
+    const bottom = box.querySelector('.oe-review + .oe-actions button') as HTMLButtonElement | null;
+    bottom?.addEventListener('click', () => startChallenge(r.part, bottom));
+    window.scrollTo({ top: root.offsetTop, behavior: 'smooth' });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tabs and routing (#listen, #words, #challenge, #challenge-3, #part-2)
+  // ---------------------------------------------------------------------------
+  let currentPart = 1;
+  function setPart(n: number) {
+    currentPart = n;
+    $$('.oe-chip-part').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.part) === n)));
+    renderListen(n);
+  }
+  function setTab(name: string) {
+    if (run && name !== 'challenge') {
+      if (!confirm('Leave the challenge? Your answers are saved and the timer keeps running.')) return;
+      window.clearInterval(run.timer);
+      run = null;
+      renderChallengeHome();
+    }
+    Audio_.stop();
+    $$('.oe-tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+    $$('[data-panel]').forEach((p) => (p.hidden = p.dataset.panel !== name));
+    if (name === 'words') renderWords();
+    try { localStorage.setItem('oe-tab', name); } catch { /* ignore */ }
+  }
+  function route() {
+    const h = location.hash.replace('#', '');
+    const ch = h.match(/^challenge-([1-5])$/);
+    const pt = h.match(/^part-([1-5])$/);
+    if (ch) {
+      setTab('challenge');
+      document.getElementById(`challenge-${ch[1]}`)?.scrollIntoView({ block: 'center' });
+    } else if (pt) {
+      setTab('listen'); setPart(Number(pt[1]));
+    } else if (['listen', 'words', 'challenge'].includes(h)) {
+      setTab(h);
+    } else {
+      let saved = 'listen';
+      try { saved = localStorage.getItem('oe-tab') || 'listen'; } catch { /* ignore */ }
+      setTab(saved);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------------
+  async function boot() {
+    showState('loading');
+    const { data: s } = await supabase.auth.getSession();
+    const user = s.session?.user;
+    if (!user || (user as any).is_anonymous) { showState('signed-out'); return; }
+
+    const { data, error } = await supabase.rpc('oral_page');
+    if (error) {
+      if (/not_entitled/.test(error.message)) {
+        const e = $('[data-signed-email]');
+        if (e && user.email) e.textContent = `You are signed in as ${user.email}.`;
+        showState('locked');
+      } else if (/sign_in_required/.test(error.message)) {
+        showState('signed-out');
+      } else {
+        showState('error');
+      }
+      return;
+    }
+    DATA = data as PageData;
+    await Audio_.loadManifest();
+    const note = $('[data-voice-note]');
+    if (Audio_.clips.size === 0) {
+      note.hidden = false;
+      note.textContent = 'Recorded British English audio is on its way. For now, words play with your phone\'s own voice.';
+    }
+    renderListen(currentPart);
+    renderChallengeHome();
+    showState('ready');
+    route();
+  }
+
+  $$('.oe-tab').forEach((t) => t.addEventListener('click', () => setTab(t.dataset.tab!)));
+  $$('.oe-chip-part').forEach((b) => b.addEventListener('click', () => setPart(Number(b.dataset.part))));
+  $('[data-word-search]').addEventListener('input', () => { wordLimit = PAGE_SIZE; renderWords(); });
+  $('[data-word-more]').addEventListener('click', () => { wordLimit += PAGE_SIZE * 2; renderWords(); });
+  $('[data-anyword-play]').addEventListener('click', (e) => {
+    const t = $<HTMLInputElement>('[data-word-search]').value.trim();
+    if (t) Audio_.speak(t, () => {});
+    void e;
+  });
+  $('[data-retry]').addEventListener('click', boot);
+  window.addEventListener('hashchange', () => { if (DATA) route(); });
+  // If a different person signs in (or the student signs out) in another tab, follow
+  // along. Token refreshes and focus events keep the same user and never reload,
+  // so a running challenge is never interrupted.
+  let bootedFor: string | null | undefined;
+  supabase.auth.onAuthStateChange((_evt, session) => {
+    const id = session?.user?.id ?? null;
+    if (bootedFor !== undefined && id !== bootedFor && !run) { bootedFor = id; boot(); }
+  });
+  supabase.auth.getSession().then(({ data }) => { bootedFor = data.session?.user?.id ?? null; });
+
+  boot();
+</script>
