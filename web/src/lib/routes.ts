@@ -13,11 +13,10 @@ export interface SiteRoute {
 // intentionally excluded here — it lives in the footer only, not the nav.
 export const NAV_ROUTES: SiteRoute[] = [
   { label: 'About', path: '/about', description: 'The story behind TECHMED and the Builder philosophy.' },
-  { label: 'UTME 2027', path: '/utme-2027', description: 'The TECHMED UTME 2027 Hub — Blueprints, Resources, Tools and the Builder Cohort in one place.' },
+  { label: 'UTME 2027', path: '/utme-2027', description: 'The TECHMED UTME 2027 Hub — Blueprints, Resources and the Builder Cohort in one place.' },
   { label: 'Pricing', path: '/pricing', description: 'UTME 2027 Masterclass packages, schedule, and pricing comparison.' },
   { label: 'Resources', path: '/resources', description: 'Boosters, revision materials and structured resources.' },
   { label: 'Quizzes', path: '/quizzes', description: 'Free UTME quizzes, mocks and book question banks.' },
-  { label: 'Tools', path: '/tools', description: 'KAIRO, the Study Planner, CBT Practice and other tools.' },
   { label: 'Podcast', path: '/podcast', description: '5 Minutes Forward — a daily habit of intentional growth.' },
   { label: 'Blog', path: '/blog', description: 'Writing on strategy, preparation and the Builder journey.' },
   { label: 'Contact', path: '/contact', description: 'Get in touch with TECHMED.' },

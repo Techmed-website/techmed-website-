@@ -1183,10 +1183,10 @@ export const ONBOARDING_FIRST_STEPS = [
   },
   {
     stepNumber: 5,
-    title: 'Practice with Kairo CBT Speed Drills',
-    desc: 'Train with timed JAMB questions on Kairo Basic to build speed, accuracy, and eliminate silly exam errors.',
-    actionUrl: '/tools',
-    actionLabel: 'Launch Kairo CBT',
+    title: 'Practise with KAIRO speed drills',
+    desc: 'Train with timed JAMB questions on KAIRO, free for every student, to build speed, accuracy, and eliminate silly exam errors.',
+    actionUrl: 'https://kairo.techmedng.com',
+    actionLabel: 'Open KAIRO (free)',
     icon: 'cbt',
   },
 ];

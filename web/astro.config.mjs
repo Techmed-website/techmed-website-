@@ -58,6 +58,9 @@ export default defineConfig({
     '/utme-2027/builders/join': '/utme-2027/builders',
     // Retire redundant /library landing page; unify discovery & bookshelf at /resources
     '/library': '/resources/',
+    // The Tools section is retired for good: the Study Planner now lives in the dashboard and in KAIRO.
+    '/tools': '/dashboard?view=planner',
+    '/tools/study-planner': '/dashboard?view=planner',
     // Old placeholder slug for the Organic Chemistry e-book.
     '/resources/organic-chemistry-mastery-manual': '/resources/organic-chemistry-mastery',
   },

@@ -1,215 +1,171 @@
 ---
-// The Study Planner -- a client-side tool (no accounts, no backend; see
-// src/lib/plannerEngine.ts for why) that turns a student's own exam date,
-// available time, subjects and starting point into a realistic sequence of
-// what to study next, using the real TECHMED Blueprint data already in
-// Sanity (src/lib/syllabus.ts). Plans persist in localStorage on this
-// device only.
-//
-// Design intent (per the product redesign this implements): the planner
-// shows the student the DECISION already made for them -- today, this
-// week, why -- not the raw output of the scheduling algorithm. The full
-// 36-week roadmap exists for reassurance, collapsed behind a disclosure,
-// not as the first thing on screen.
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getSubjects } from '../../lib/syllabus';
-
+// The Study Planner, as a component: lives inside the student dashboard (Planner tab).
+// Client-side engine in src/lib/plannerEngine.ts; sequenced against the TECHMED Blueprint (src/lib/syllabus.ts).
+import { getSubjects } from '../lib/syllabus';
 const subjects = await getSubjects();
-// Only the subjects with real Blueprint stage/topic data can be sequenced
-// meaningfully -- matches the "using TECHMED Blueprint where available"
-// wording in the brief exactly, rather than silently including subjects
-// with no stages to plan against.
 const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0);
-
-const pageUrl = new URL('/tools/study-planner', Astro.site).toString();
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'WebApplication',
-    name: 'TECHMED Study Planner',
-    url: pageUrl,
-    applicationCategory: 'EducationApplication',
-    description: 'Turn your UTME subjects, available time and exam date into a realistic sequence of what to study next, sequenced against the TECHMED Blueprint.',
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: Astro.site?.toString() },
-      { '@type': 'ListItem', position: 2, name: 'Tools', item: new URL('/tools', Astro.site).toString() },
-      { '@type': 'ListItem', position: 3, name: 'Study Planner', item: pageUrl },
-    ],
-  },
-];
 ---
+<div class="planner" id="planner" data-subjects={JSON.stringify(plannableSubjects)}>
 
-<BaseLayout
-  title="Study Planner — TECHMED"
-  description="Know what to study next. Tell it your subjects, your real available time and your exam date -- it sequences the TECHMED Blueprint into today's tasks, this week's route, and the road to your exam."
-  jsonLd={jsonLd}
->
-  <div class="planner" id="planner" data-subjects={JSON.stringify(plannableSubjects)}>
+  <!-- INTRO -->
+  <section class="intro" id="introSection">
+    <p class="eyebrow">Study Planner</p>
+    <h1>Know what to study next.</h1>
+    <p class="lede">You already have timetables, textbooks, YouTube and group chats. What you don't have is one place that answers the actual question: out of everything you could study right now, what makes sense next? Tell it your subjects, your real available time and your exam date &mdash; it builds the route from the TECHMED Blueprint.</p>
+    <p class="intro-blueprint-note">Never seen the Blueprint itself? It's the document behind everything this planner schedules &mdash; what to learn in each topic, why it comes in that order, and what it connects to. <a href="/jamb-syllabus-2027">See it first &rarr;</a></p>
+  </section>
 
-    <!-- INTRO -->
-    <section class="intro" id="introSection">
-      <p class="eyebrow">Tools &middot; Study Planner</p>
-      <h1>Know what to study next.</h1>
-      <p class="lede">You already have timetables, textbooks, YouTube and group chats. What you don't have is one place that answers the actual question: out of everything you could study right now, what makes sense next? Tell it your subjects, your real available time and your exam date &mdash; it builds the route from the TECHMED Blueprint.</p>
-      <p class="intro-blueprint-note">Never seen the Blueprint itself? It's the document behind everything this planner schedules &mdash; what to learn in each topic, why it comes in that order, and what it connects to. <a href="/jamb-syllabus-2027">See it first &rarr;</a></p>
-    </section>
+  <!-- ONBOARDING WIZARD -->
+  <section class="wizard" id="wizardSection">
+    <div class="wizard-progress" id="wizardProgress" role="group" aria-label="Setup progress"></div>
 
-    <!-- ONBOARDING WIZARD -->
-    <section class="wizard" id="wizardSection">
-      <div class="wizard-progress" id="wizardProgress" role="group" aria-label="Setup progress"></div>
+    <form id="plannerForm" novalidate>
 
-      <form id="plannerForm" novalidate>
+      <div class="wiz-step" data-step="date">
+        <h2>When are you writing UTME?</h2>
+        <p class="step-hint">Your best current estimate is fine &mdash; confirm the exact date on jamb.gov.ng closer to the time.</p>
+        <input type="date" id="targetDate" name="targetDate" required />
+      </div>
 
-        <div class="wiz-step" data-step="date">
-          <h2>When are you writing UTME?</h2>
-          <p class="step-hint">Your best current estimate is fine &mdash; confirm the exact date on jamb.gov.ng closer to the time.</p>
-          <input type="date" id="targetDate" name="targetDate" required />
-        </div>
+      <div class="wiz-step" data-step="subjects" hidden>
+        <h2>Which subjects are you taking?</h2>
+        <p class="step-hint">Use of English is required for every UTME candidate. Choose exactly 3 more.</p>
+        <div class="subject-picker" id="subjectPicker"></div>
+      </div>
 
-        <div class="wiz-step" data-step="subjects" hidden>
-          <h2>Which subjects are you taking?</h2>
-          <p class="step-hint">Use of English is required for every UTME candidate. Choose exactly 3 more.</p>
-          <div class="subject-picker" id="subjectPicker"></div>
-        </div>
-
-        <div class="wiz-step" data-step="capacity" hidden>
-          <h2>How much time can you realistically protect each week?</h2>
-          <p class="step-hint">Not how much you'd <em>like</em> to study &mdash; how much you can actually promise, most weeks.</p>
-          <div class="field-group">
-            <span class="field-label">Days you can usually study</span>
-            <div class="day-toggles" id="dayToggles" role="group" aria-label="Available days">
-              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
-                <button type="button" class="day-toggle" data-day={i} aria-pressed="false">{d}</button>
-              ))}
-            </div>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="hoursPerDay">Focused hours on a normal study day</label>
-            <input type="number" id="hoursPerDay" name="hoursPerDay" min="0.5" max="12" step="0.5" value="2" required />
+      <div class="wiz-step" data-step="capacity" hidden>
+        <h2>How much time can you realistically protect each week?</h2>
+        <p class="step-hint">Not how much you'd <em>like</em> to study &mdash; how much you can actually promise, most weeks.</p>
+        <div class="field-group">
+          <span class="field-label">Days you can usually study</span>
+          <div class="day-toggles" id="dayToggles" role="group" aria-label="Available days">
+            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+              <button type="button" class="day-toggle" data-day={i} aria-pressed="false">{d}</button>
+            ))}
           </div>
         </div>
-
-        <div class="wiz-step" data-step="starting-point" hidden>
-          <h2>Where are you starting from?</h2>
-          <p class="step-hint">Rough is fine &mdash; this isn't a test.</p>
-          <div id="subjectDetails" class="subject-details"></div>
-        </div>
-
-        <div class="wiz-step" data-step="review" hidden>
-          <h2>That's enough.</h2>
-          <p class="step-hint">We'll build your route from the TECHMED Blueprint.</p>
-          <div class="review-summary" id="reviewSummary"></div>
-        </div>
-
-        <p class="step-error" id="stepError" hidden></p>
-
-        <div class="wiz-nav">
-          <button type="button" class="btn-secondary" id="wizBack" hidden>Back</button>
-          <button type="button" class="btn-primary" id="wizNext">Continue</button>
-          <button type="submit" class="btn-primary" id="wizBuild" hidden>Build my plan</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- BUILDING TRANSITION -->
-    <section class="building no-print" id="buildingSection" hidden>
-      <p class="building-title">Building your route</p>
-      <ul class="building-steps" id="buildingSteps">
-        <li>Checking your available time&hellip;</li>
-        <li>Sequencing the Blueprint&hellip;</li>
-        <li>Protecting revision time&hellip;</li>
-        <li>Balancing your subjects&hellip;</li>
-      </ul>
-    </section>
-
-    <!-- RESULTS -->
-    <section class="results" id="resultsSection" hidden>
-
-      <div class="results-header no-print">
-        <div>
-          <p class="eyebrow" id="resultsEyebrow"></p>
-          <h1 id="resultsHeading">Your Plan</h1>
-        </div>
-        <div class="toolbar-actions">
-          <button type="button" class="btn-secondary" id="printBtn">Print</button>
-          <button type="button" class="btn-secondary" id="adjustBtn">Adjust my plan</button>
-          <button type="button" class="btn-text" id="startOverBtn">Start over</button>
+        <div class="field-group">
+          <label class="field-label" for="hoursPerDay">Focused hours on a normal study day</label>
+          <input type="number" id="hoursPerDay" name="hoursPerDay" min="0.5" max="12" step="0.5" value="2" required />
         </div>
       </div>
 
-      <div class="return-banner no-print" id="returnBanner" hidden></div>
-
-      <div class="phase-banner no-print" id="phaseBanner"></div>
-
-      <div class="constraint-box no-print" id="constraintBox" hidden></div>
-
-      <!-- Deliberately right here, not after the roadmap: this is what
-           "Adjust my plan" (in the header above) and the constraint box's
-           own action chips both open, so it needs to appear where a
-           student is already looking, not several cards further down. -->
-      <div class="adjust-panel no-print" id="adjustPanel" hidden>
-        <h3>What's changed?</h3>
-        <div class="adjust-options" id="adjustOptions">
-          <button type="button" data-adjust="missed">I missed some study days</button>
-          <button type="button" data-adjust="less-time">I have less time now</button>
-          <button type="button" data-adjust="more-time">I have more time now</button>
-          <button type="button" data-adjust="date">I want to change my exam date</button>
-        </div>
-        <div class="adjust-edit" id="adjustEdit" hidden></div>
+      <div class="wiz-step" data-step="starting-point" hidden>
+        <h2>Where are you starting from?</h2>
+        <p class="step-hint">Rough is fine &mdash; this isn't a test.</p>
+        <div id="subjectDetails" class="subject-details"></div>
       </div>
 
-      <div class="today-card no-print" id="todayCard">
-        <p class="card-label">Today</p>
-        <ul class="task-list" id="todayTasks"></ul>
+      <div class="wiz-step" data-step="review" hidden>
+        <h2>That's enough.</h2>
+        <p class="step-hint">We'll build your route from the TECHMED Blueprint.</p>
+        <div class="review-summary" id="reviewSummary"></div>
       </div>
 
-      <div class="week-card no-print" id="weekCard">
-        <p class="card-label">This Week</p>
-        <p class="week-summary" id="weekSummary"></p>
-        <ul class="week-list" id="weekTasks"></ul>
+      <p class="step-error" id="stepError" hidden></p>
+
+      <div class="wiz-nav">
+        <button type="button" class="btn-secondary" id="wizBack" hidden>Back</button>
+        <button type="button" class="btn-primary" id="wizNext">Continue</button>
+        <button type="submit" class="btn-primary" id="wizBuild" hidden>Build my plan</button>
       </div>
+    </form>
+  </section>
 
-      <div class="progress-card no-print" id="progressCard">
-        <p class="card-label">Your Progress</p>
-        <div class="progress-stats" id="progressStats"></div>
+  <!-- BUILDING TRANSITION -->
+  <section class="building no-print" id="buildingSection" hidden>
+    <p class="building-title">Building your route</p>
+    <ul class="building-steps" id="buildingSteps">
+      <li>Checking your available time&hellip;</li>
+      <li>Sequencing the Blueprint&hellip;</li>
+      <li>Protecting revision time&hellip;</li>
+      <li>Balancing your subjects&hellip;</li>
+    </ul>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="results" id="resultsSection" hidden>
+
+    <div class="results-header no-print">
+      <div>
+        <p class="eyebrow" id="resultsEyebrow"></p>
+        <h1 id="resultsHeading">Your Plan</h1>
       </div>
-
-      <details class="route-disclosure no-print" id="routeDisclosure">
-        <summary>See your full route</summary>
-        <div class="roadmap-weeks" id="roadmapWeeks"></div>
-      </details>
-
-      <!-- Printable version: always in the DOM, hidden on screen -- built
-           fresh, not a raw dump of the on-screen sections (see printBtn's
-           handler for why). -->
-      <div class="print-sheet" id="printSheet"></div>
-
-    </section>
-
-    <!-- Start-over confirmation: a native <dialog> instead of a second
-         confirm() -- gets a real focus trap, Esc-to-close and backdrop for
-         free, and lets the copy actually explain what's being lost instead
-         of a one-line browser prompt. Defaults to the safe (Keep) option;
-         the destructive action needs a deliberate click. -->
-    <dialog class="start-over-dialog no-print" id="startOverDialog">
-      <p class="dialog-eyebrow">Start over</p>
-      <h2>This clears everything &mdash; for good.</h2>
-      <p class="dialog-copy">Your current route, every topic you've marked complete, and any notes you've added all get wiped. There's no undo and nothing to restore afterward &mdash; you'll set up a fresh plan from scratch.</p>
-      <div class="dialog-actions">
-        <button type="button" class="btn-primary" id="startOverCancel" autofocus>Keep my current plan</button>
-        <button type="button" class="btn-danger" id="startOverConfirm">Clear everything and start over</button>
+      <div class="toolbar-actions">
+        <button type="button" class="btn-secondary" id="printBtn">Print</button>
+        <button type="button" class="btn-secondary" id="adjustBtn">Adjust my plan</button>
+        <button type="button" class="btn-text" id="startOverBtn">Start over</button>
       </div>
-    </dialog>
+    </div>
 
-  </div>
-</BaseLayout>
+    <div class="return-banner no-print" id="returnBanner" hidden></div>
+
+    <div class="phase-banner no-print" id="phaseBanner"></div>
+
+    <div class="constraint-box no-print" id="constraintBox" hidden></div>
+
+    <!-- Deliberately right here, not after the roadmap: this is what
+         "Adjust my plan" (in the header above) and the constraint box's
+         own action chips both open, so it needs to appear where a
+         student is already looking, not several cards further down. -->
+    <div class="adjust-panel no-print" id="adjustPanel" hidden>
+      <h3>What's changed?</h3>
+      <div class="adjust-options" id="adjustOptions">
+        <button type="button" data-adjust="missed">I missed some study days</button>
+        <button type="button" data-adjust="less-time">I have less time now</button>
+        <button type="button" data-adjust="more-time">I have more time now</button>
+        <button type="button" data-adjust="date">I want to change my exam date</button>
+      </div>
+      <div class="adjust-edit" id="adjustEdit" hidden></div>
+    </div>
+
+    <div class="today-card no-print" id="todayCard">
+      <p class="card-label">Today</p>
+      <ul class="task-list" id="todayTasks"></ul>
+    </div>
+
+    <div class="week-card no-print" id="weekCard">
+      <p class="card-label">This Week</p>
+      <p class="week-summary" id="weekSummary"></p>
+      <ul class="week-list" id="weekTasks"></ul>
+    </div>
+
+    <div class="progress-card no-print" id="progressCard">
+      <p class="card-label">Your Progress</p>
+      <div class="progress-stats" id="progressStats"></div>
+    </div>
+
+    <details class="route-disclosure no-print" id="routeDisclosure">
+      <summary>See your full route</summary>
+      <div class="roadmap-weeks" id="roadmapWeeks"></div>
+    </details>
+
+    <!-- Printable version: always in the DOM, hidden on screen -- built
+         fresh, not a raw dump of the on-screen sections (see printBtn's
+         handler for why). -->
+    <div class="print-sheet" id="printSheet"></div>
+
+  </section>
+
+  <!-- Start-over confirmation: a native <dialog> instead of a second
+       confirm() -- gets a real focus trap, Esc-to-close and backdrop for
+       free, and lets the copy actually explain what's being lost instead
+       of a one-line browser prompt. Defaults to the safe (Keep) option;
+       the destructive action needs a deliberate click. -->
+  <dialog class="start-over-dialog no-print" id="startOverDialog">
+    <p class="dialog-eyebrow">Start over</p>
+    <h2>This clears everything &mdash; for good.</h2>
+    <p class="dialog-copy">Your current route, every topic you've marked complete, and any notes you've added all get wiped. There's no undo and nothing to restore afterward &mdash; you'll set up a fresh plan from scratch.</p>
+    <div class="dialog-actions">
+      <button type="button" class="btn-primary" id="startOverCancel" autofocus>Keep my current plan</button>
+      <button type="button" class="btn-danger" id="startOverConfirm">Clear everything and start over</button>
+    </div>
+  </dialog>
+
+</div>
 
 <script>
-  import type { Subject, SubjectStage } from '../../lib/syllabus';
+  import type { Subject, SubjectStage } from '../lib/syllabus';
   import {
     buildPlan,
     getWeekForDate,
@@ -226,7 +182,7 @@ const jsonLd = [
     type PlannerPlan,
     type WeekPlan,
     type DayTask,
-  } from '../../lib/plannerEngine';
+  } from '../lib/plannerEngine';
   import {
     saveInput,
     loadInput,
@@ -245,7 +201,7 @@ const jsonLd = [
     saveCurrentWeekSnapshot,
     loadCurrentWeekSnapshot,
     clearCurrentWeekSnapshot,
-  } from '../../lib/plannerStorage';
+  } from '../lib/plannerStorage';
 
   const root = document.getElementById('planner') as HTMLElement;
   const subjects: Subject[] = JSON.parse(root.dataset.subjects || '[]');
@@ -1221,7 +1177,7 @@ const jsonLd = [
     document.getElementById('todayCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function renderReturnBanner(changes: import('../../lib/plannerEngine').SubjectPlanChange[]) {
+  function renderReturnBanner(changes: import('../lib/plannerEngine').SubjectPlanChange[]) {
     const moved = changes.filter((c) => c.status !== 'on-track');
     returnBanner.hidden = false;
     returnBanner.innerHTML = `

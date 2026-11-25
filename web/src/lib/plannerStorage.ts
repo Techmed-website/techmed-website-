@@ -20,7 +20,7 @@ const SNAPSHOT_KEY = 'techmed-study-planner:previous-snapshot';
 // the queue shifts every later topic one slot earlier, which can pull a
 // *different* topic into today's already-shown slot. This holds the
 // current week's assignment steady across passive reloads (see
-// reconcileCurrentWeek in study-planner.astro); a deliberate action
+// reconcileCurrentWeek in StudyPlanner.astro); a deliberate action
 // (Adjust, Start Over, a fresh build) intentionally overwrites it with a
 // new baseline instead of reconciling against the old one.
 const CURRENT_WEEK_KEY = 'techmed-study-planner:current-week';

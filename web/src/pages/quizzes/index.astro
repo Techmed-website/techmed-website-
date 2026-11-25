@@ -10,9 +10,9 @@ const jsonLd = [
   {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'TECHMED Quizzes — free UTME, WAEC and NECO practice',
+    name: 'TECHMED Quizzes: free daily UTME quiz and challenges on KAIRO',
     url: pageUrl,
-    description: 'Free daily and weekly UTME 2027 quizzes, diagnostics and mock exams from TECHMED, plus book question banks and class quizzes for TECHMED students.',
+    description: 'A free daily UTME quiz with a leaderboard and live challenges on KAIRO, plus book question banks and class quizzes for TECHMED students.',
     hasPart: quizzes.slice(0, 50).map((q) => ({
       '@type': 'Quiz',
       name: q.title,
@@ -26,8 +26,8 @@ const jsonLd = [
 ---
 
 <BaseLayout
-  title="Quizzes — Free UTME 2027 Practice, Mocks & Book Question Banks | TECHMED"
-  description="Free daily and weekly UTME 2027 quizzes, diagnostics and mock exams from TECHMED, plus book question banks and class quizzes for TECHMED students."
+  title="Quizzes: Free Daily UTME Quiz & Challenges on KAIRO | TECHMED"
+  description="KAIRO is live and free: a new daily UTME quiz with a leaderboard every morning, plus challenges and 13,000+ past questions. No activation code, no PIN."
   jsonLd={jsonLd}
 >
   <main class="quizzes-page">
@@ -35,9 +35,10 @@ const jsonLd = [
       <p class="qp-eyebrow">TECHMED QUIZ HUB</p>
       <h1>Practise every day. Know exactly where you stand.</h1>
       <p class="qp-sub">
-        Daily Builder quizzes, weekly CBT challenges, diagnostics and full JAMB-standard mocks, all in one place.
-        Free quizzes are open to everyone; class quizzes and book question banks unlock with your TECHMED plan or book.
+        KAIRO is live and free: a new daily quiz with a leaderboard every morning, live challenges and 13,000+ past questions in every subject.
+        No activation code, no PIN. Class quizzes and book question banks unlock with your TECHMED plan or book.
       </p>
+      <p class="qp-cta"><a class="qp-btn" href="https://kairo.techmedng.com" target="_blank" rel="noopener">Open KAIRO (free)</a></p>
     </header>
     <KairoQuizStrip />
     <QuizHub variant="page" />
@@ -66,6 +67,8 @@ const jsonLd = [
     font-size: clamp(1.6rem, 5vw, 2.4rem);
     line-height: 1.15;
   }
+  .qp-cta { margin: 14px 0 0; }
+  .qp-btn { display: inline-block; padding: 10px 18px; border-radius: 999px; font-weight: 800; background: var(--accent); color: #fff; text-decoration: none; }
   .qp-sub {
     margin: 0;
     max-width: 720px;
