@@ -43,23 +43,29 @@ It is for book owners only. The page lives on the website, not KAIRO, because KA
 
 ## Audio
 
-Until clips exist, the page uses the phone's own voice and tells students so. To record the British English clips:
+The clips are recorded with **Kokoro**, a free, open-source British English voice (`bf_emma`). It needs no account, no API key and no payment. Google Text-to-Speech is also supported, but it needs a billing account. If a clip is missing, the page uses the phone's own voice for that item.
+
+To record or re-record clips:
 
 1. As an admin, export the texts with `select public.oral_audio_texts();` and save the JSON outside the repo. That JSON contains book content.
-2. Run the generator:
+2. Build the plan. This lists only clips that do not exist yet:
    ```
    cd web
-   GOOGLE_TTS_API_KEY=... node scripts/generate-oral-audio.mjs --texts /path/oral-audio-texts.json --review /path/review.html
+   node scripts/generate-oral-audio.mjs --texts /path/oral-audio-texts.json --plan /path/plan.json
    ```
-   - It produces about 1,760 clips and about 46,000 characters of SSML, which fits in Google's free monthly allowance.
-   - Files that already exist are skipped, so re-running only fills gaps.
-   - The default voice is `en-GB-Neural2-A`. Use `--voice` to change it.
-3. Spot-check the clips with the review page, especially the ones the brief lists: plait, heir, colonel, buoy, coup, indict, clerk, says, said, the tear/wind/wound pairs, bath/bathe, chalet, champagne, Thames, Thomas, of, gnash, psychology, every noun–verb pair, and all 70 emphatic sentences.
-4. Commit `web/public/audio/oral/` and deploy.
+3. Record the clips. This needs Python 3.10 to 3.12 with `pip install "kokoro>=0.9.4" soundfile librosa` (CPU torch is fine) and ffmpeg:
+   ```
+   python scripts/kokoro_render.py --plan /path/plan.json
+   ```
+   It takes about 0.3 seconds per clip and produces MP3s of about 10 KB each. Use `--limit 20` for a quick trial.
+4. Spot-check the clips, especially the ones the brief lists: plait, heir, colonel, buoy, coup, indict, clerk, says, said, the tear/wind/wound pairs, bath/bathe, chalet, champagne, Thames, Thomas, of, gnash, psychology, every noun–verb pair, and all 70 emphatic sentences.
+5. Commit `web/public/audio/oral/` and deploy.
 
-How the generator reads each kind of item:
-- **Noun–verb pairs** (EXport/exPORT) **and meaning-dependent words** (tear, wind, wound, bow, row, lead, read, live, close, minute, use, dove): the voice is given British IPA.
-- **Emphatic sentences:** the capitalised word gets `<emphasis level="strong">`.
+To use Google instead, run `GOOGLE_TTS_API_KEY=... node scripts/generate-oral-audio.mjs --texts ... --engine google`.
+
+How each kind of item is read. These rules live in `describe()` and are shared by both engines:
+- **Noun–verb pairs** (EXport/exPORT) **and meaning-dependent words** (tear, wind, wound, bow, row, lead, read, live, close, minute, use, dove): the voice is given the exact British IPA.
+- **Emphatic sentences:** the capitalised word is stressed. Kokoro has no emphasis setting, so after recording, that word is made louder, about 20% longer, and two semitones higher, using Kokoro's own word timings. The rest of the sentence is made slightly softer.
 - **Wrong stress patterns:** never recorded or playable.
 
 Students can tap **"Sounds wrong?"** in the Word Bank. Reports go to `public.oral_reports`, which only admins can read. To fix a clip, delete its MP3 and re-run the generator.

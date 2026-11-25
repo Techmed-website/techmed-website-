@@ -1,20 +1,26 @@
 #!/usr/bin/env node
-// Records the British English clips for /oral-english with Google Cloud Text-to-Speech.
+// Records the British English clips for /oral-english.
 //
-//   node scripts/generate-oral-audio.mjs --texts oral-audio-texts.json [--dry-run] [--voice en-GB-Neural2-A] [--review review.html]
+// Two engines, same pronunciation rules (describe() below):
+//
+//  Kokoro (default, free, runs on your own machine, no account):
+//    node scripts/generate-oral-audio.mjs --texts oral-audio-texts.json --plan plan.json
+//    python scripts/kokoro_render.py --plan plan.json        # needs Python 3.10-3.12 + kokoro
+//
+//  Google Cloud Text-to-Speech (needs an API key with billing):
+//    GOOGLE_TTS_API_KEY=... node scripts/generate-oral-audio.mjs --texts oral-audio-texts.json --engine google
 //
 // --texts   The JSON returned by the admin-only database function public.oral_audio_texts()
 //           (Listen content + Word Bank + every prompt/option the results screen can play).
 //           Export it with an admin account; it is NOT committed (this repo is public).
-// --dry-run Count and preview what would be recorded; no API calls.
+// --plan    Write what still needs recording (text, words to say, IPA, emphasis) for kokoro_render.py.
+// --dry-run Count and preview what would be recorded; no recording.
 // --review  Also write an HTML page listing every clip with its text, so a person can
 //           spot-check them (see the brief's list: plait, heir, colonel, buoy, ...).
 //
-// The API key is read from GOOGLE_TTS_API_KEY (or injected by a network proxy as
-// the X-Goog-Api-Key header). Each clip is generated once and saved as
-// public/audio/oral/<key>.mp3; existing files are skipped, so re-running only fills
-// gaps. public/audio/oral/manifest.json lists every clip that exists; the page only
-// requests clips in the manifest and uses the phone's voice for the rest.
+// Each clip is saved once as public/audio/oral/<key>.mp3; existing files are skipped,
+// so re-running only fills gaps. public/audio/oral/manifest.json lists every clip that
+// exists; the page only requests clips in the manifest and uses the phone's voice for the rest.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +34,8 @@ const DRY = args.includes('--dry-run');
 const TEXTS = opt('texts');
 const VOICE = opt('voice', 'en-GB-Neural2-A');
 const REVIEW = opt('review');
+const PLAN = opt('plan');
+const ENGINE = opt('engine', PLAN ? 'kokoro' : 'google');
 const CONCURRENCY = 4;
 
 if (!TEXTS) { console.error('Pass --texts <file.json> (output of public.oral_audio_texts()).'); process.exit(1); }
@@ -60,43 +68,54 @@ const SENSE = {
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const isPattern = (w) => /[a-z]/.test(w) && /[A-Z]{2}|[a-z][A-Z]/.test(w);
 
-/** SSML for one item, plus a short note on how it is read (for the review page). */
-export function toSsml(raw) {
+/**
+ * How one item is read, independent of the voice engine:
+ *   say   the words to speak (stress capitals removed)
+ *   ipa   exact British IPA for the whole item, when meaning or part of speech decides it
+ *   emph  the word(s) to stress strongly, for emphatic-stress sentences
+ */
+export function describe(raw) {
   const text = clipText(raw);
   const lower = text.toLowerCase();
   const m = text.match(/^(.+?)\s*\(([^)]+)\)$/);
-  const base = (m ? m[1] : text).replace(/[-—]/g, '');
+  const base = (m ? m[1] : text).replace(/[-\u2014]/g, '');
 
-  // 1. Meaning-dependent words: "tear (to rip)", "wound (injury)" ...
-  const sense = SENSE[lower.replace(/[-—]/g, '')];
-  if (sense) return { ssml: `<speak><phoneme alphabet="ipa" ph="${sense}">${esc(base.toLowerCase())}</phoneme></speak>`, how: `IPA /${sense}/` };
+  const sense = SENSE[lower.replace(/[-\u2014]/g, '')];
+  if (sense) return { say: base.toLowerCase(), ipa: sense, emph: [], how: `IPA /${sense}/` };
 
-  // 2. Noun / verb pairs: "EXport (noun)", "conTEST (verb)", "insult (noun)".
   const nv = NOUN_VERB[base.toLowerCase()];
   if (nv) {
     let which = m ? (/(verb)/i.test(m[2]) ? 1 : /(noun|adjective)/i.test(m[2]) ? 0 : -1) : -1;
     if (which < 0 && isPattern(base)) which = /^[A-Z]{2}/.test(base) ? 0 : 1; // EXport vs exPORT
-    if (which >= 0) return { ssml: `<speak><phoneme alphabet="ipa" ph="${nv[which]}">${esc(base.toLowerCase())}</phoneme></speak>`, how: `IPA /${nv[which]}/` };
+    if (which >= 0) return { say: base.toLowerCase(), ipa: nv[which], emph: [], how: `IPA /${nv[which]}/` };
   }
 
-  // 3. Sentences: the CAPITALISED word(s) get strong emphasis (Part 4).
-  if (/\s/.test(base) && /\b[A-Z][A-Z']+\b/.test(base.replace(/\bI\b/g, ''))) {
+  if (/\s/.test(base) && /\b[A-Z][A-Z']+\b/.test(base)) {
+    const emph = [];
     let first = true;
-    const body = base.split(/(\b[A-Z][A-Z']+(?:\s+[A-Z][A-Z']+)*\b)/).map((part) => {
+    const say = base.split(/(\b[A-Z][A-Z']+(?:\s+[A-Z][A-Z']+)*\b)/).map((part) => {
       if (!part) return '';
       const caps = /^[A-Z][A-Z']+(?:\s+[A-Z][A-Z']+)*$/.test(part);
       const atStart = first; first = false;
-      if (!caps) return esc(part);
+      if (!caps) return part;
       let w = part.toLowerCase();
       if (atStart) w = w.charAt(0).toUpperCase() + w.slice(1);
-      return `<emphasis level="strong">${esc(w)}</emphasis>`;
+      emph.push(w);
+      return w;
     }).join('');
-    return { ssml: `<speak>${body}</speak>`, how: 'emphasis on the capitalised word' };
+    return { say, ipa: null, emph, how: `emphasis on "${emph.join(' ')}"` };
   }
 
-  // 4. Stress-marked single words ("phoTOgraphy"): the voice says the real word.
-  const spoken = isPattern(base) ? base.toLowerCase() : base;
-  return { ssml: `<speak>${esc(spoken)}</speak>`, how: isPattern(base) ? 'natural stress' : 'plain' };
+  return { say: isPattern(base) ? base.toLowerCase() : base, ipa: null, emph: [], how: isPattern(base) ? 'natural stress' : 'plain' };
+}
+
+/** SSML for Google Text-to-Speech. */
+export function toSsml(raw) {
+  const d = describe(raw);
+  if (d.ipa) return { ssml: `<speak><phoneme alphabet="ipa" ph="${d.ipa}">${esc(d.say)}</phoneme></speak>`, how: d.how };
+  let body = esc(d.say);
+  for (const w of d.emph) body = body.replace(esc(w), `<emphasis level="strong">${esc(w)}</emphasis>`);
+  return { ssml: `<speak>${body}</speak>`, how: d.how };
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +183,15 @@ async function main() {
   const todo = [...all].filter(([k]) => !fs.existsSync(path.join(OUT_DIR, `${k}.mp3`)));
   const chars = todo.reduce((n, [, t]) => n + toSsml(t).ssml.length, 0);
   console.log(`${all.size} clips in total, ${all.size - todo.length} already recorded, ${todo.length} to record (~${chars.toLocaleString()} characters of SSML). Voice ${VOICE}.`);
+
+  if (PLAN) {
+    const items = todo.map(([key, text]) => ({ key, text, ...describe(text) }));
+    fs.writeFileSync(PLAN, JSON.stringify({ out_dir: OUT_DIR, items }, null, 1));
+    console.log(`Plan with ${items.length} clips written to ${PLAN}. Next: python scripts/kokoro_render.py --plan ${PLAN}`);
+    if (REVIEW) writeReview([...all]);
+    return;
+  }
+  if (ENGINE !== 'google') { console.error('Use --plan for Kokoro, or --engine google.'); process.exit(1); }
 
   if (DRY) {
     const samples = ['EXport (noun)', 'exPORT (verb)', 'tear (to rip)', 'I DIDN’T take your pen.', 'KUNLE ran to school.', 'phoTOgraphy', 'colonel'];
