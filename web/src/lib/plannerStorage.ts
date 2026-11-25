@@ -2,6 +2,7 @@
 // V1 (the site is fully static; see plannerEngine.ts for why). Deliberately
 // thin: this file only knows how to read/write JSON, not how a plan is
 // built or interpreted -- that's plannerEngine.ts's job.
+import { PLANNER_CHANGED } from './plannerSync';
 import { toLocalIso, type PlannerInput, type PlannerPlan, type PlanSnapshot, type WeekPlan } from './plannerEngine';
 
 const PLAN_KEY = 'techmed-study-planner:plan';
@@ -25,6 +26,10 @@ const SNAPSHOT_KEY = 'techmed-study-planner:previous-snapshot';
 // new baseline instead of reconciling against the old one.
 const CURRENT_WEEK_KEY = 'techmed-study-planner:current-week';
 
+function notify(): void {
+  try { window.dispatchEvent(new Event(PLANNER_CHANGED)); } catch { /* not in a browser */ }
+}
+
 function hasStorage(): boolean {
   try {
     return typeof window !== 'undefined' && !!window.localStorage;
@@ -36,6 +41,7 @@ function hasStorage(): boolean {
 export function saveInput(input: PlannerInput): void {
   if (!hasStorage()) return;
   localStorage.setItem(PLAN_KEY, JSON.stringify(input));
+  notify();
 }
 
 export function loadInput(): PlannerInput | null {
@@ -52,6 +58,7 @@ export function loadInput(): PlannerInput | null {
 export function clearInput(): void {
   if (!hasStorage()) return;
   localStorage.removeItem(PLAN_KEY);
+  notify();
 }
 
 export function loadCompletedKeys(): Set<string> {
@@ -68,6 +75,7 @@ export function loadCompletedKeys(): Set<string> {
 export function saveCompletedKeys(keys: Set<string>): void {
   if (!hasStorage()) return;
   localStorage.setItem(COMPLETED_KEY, JSON.stringify([...keys]));
+  notify();
 }
 
 export function markTopicComplete(key: string, done: boolean): Set<string> {
@@ -81,6 +89,7 @@ export function markTopicComplete(key: string, done: boolean): Set<string> {
 export function clearProgress(): void {
   if (!hasStorage()) return;
   localStorage.removeItem(COMPLETED_KEY);
+  notify();
 }
 
 export function todayIso(): string {
@@ -90,6 +99,7 @@ export function todayIso(): string {
 export function savePlanSnapshot(snapshot: PlanSnapshot): void {
   if (!hasStorage()) return;
   localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+  notify();
 }
 
 export function loadPlanSnapshot(): PlanSnapshot | null {
@@ -106,6 +116,7 @@ export function loadPlanSnapshot(): PlanSnapshot | null {
 export function clearPlanSnapshot(): void {
   if (!hasStorage()) return;
   localStorage.removeItem(SNAPSHOT_KEY);
+  notify();
 }
 
 export function loadNotes(): Record<string, string> {
@@ -126,16 +137,19 @@ export function saveNote(key: string, note: string): void {
   if (trimmed) notes[key] = trimmed;
   else delete notes[key];
   localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  notify();
 }
 
 export function clearNotes(): void {
   if (!hasStorage()) return;
   localStorage.removeItem(NOTES_KEY);
+  notify();
 }
 
 export function saveCurrentWeekSnapshot(week: WeekPlan): void {
   if (!hasStorage()) return;
   localStorage.setItem(CURRENT_WEEK_KEY, JSON.stringify(week));
+  notify();
 }
 
 export function loadCurrentWeekSnapshot(): WeekPlan | null {
@@ -152,4 +166,5 @@ export function loadCurrentWeekSnapshot(): WeekPlan | null {
 export function clearCurrentWeekSnapshot(): void {
   if (!hasStorage()) return;
   localStorage.removeItem(CURRENT_WEEK_KEY);
+  notify();
 }

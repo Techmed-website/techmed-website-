@@ -203,6 +203,11 @@ const plannableSubjects = subjects.filter((s) => s.stages && s.stages.length > 0
     clearCurrentWeekSnapshot,
   } from '../lib/plannerStorage';
 
+  import { hydratePlanner } from '../lib/plannerSync';
+
+  // Pull the student's saved plan from the database (if signed in) before anything reads local storage.
+  await hydratePlanner();
+
   const root = document.getElementById('planner') as HTMLElement;
   const subjects: Subject[] = JSON.parse(root.dataset.subjects || '[]');
   const subjectBySlug = new Map(subjects.map((s) => [s.slug, s]));
