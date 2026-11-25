@@ -4,7 +4,7 @@
     node scripts/generate-oral-audio.mjs --texts oral-audio-texts.json --plan plan.json
     python scripts/kokoro_render.py --plan plan.json [--voice bf_emma]
 
-Needs Python 3.10-3.12 with:  pip install "kokoro>=0.9.4" soundfile librosa  (plus torch; CPU is fine)
+Needs Python 3.10-3.12 with:  pip install "kokoro>=0.9.4" soundfile  (plus torch; CPU is fine)
 and ffmpeg on the PATH. About 0.3 s per clip on a laptop CPU.
 
 How items are read (decided by describe() in generate-oral-audio.mjs):
@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 
 import numpy as np
 import soundfile as sf
-import librosa
 from kokoro import KPipeline
 
 SR = 24000
@@ -60,38 +59,31 @@ def norm_word(w):
     return re.sub(r"[^a-z']", '', w.lower().replace('’', "'"))
 
 
-def emphasise(audio, words, emph):
-    """Louder, longer, higher on the emphasised word(s); the rest slightly softer."""
-    toks = [norm_word(w[0]) for w in words]
-    spans = []
+def mark_emphasis(say, emph):
+    """Kokoro's stress marker on the emphasised word(s), same voice, nothing added later."""
     for phrase in emph:
-        target = [norm_word(x) for x in phrase.split()]
-        for i in range(len(toks) - len(target) + 1):
-            if toks[i:i + len(target)] == target:
-                spans.append((words[i][1], words[i + len(target) - 1][2]))
-                break
-    if not spans:
-        return audio, False
-    out, pos, fade = [], 0, int(0.012 * SR)
-    for start, end in sorted(spans):
-        s, e = max(0, int(start * SR) - int(0.01 * SR)), min(len(audio), int(end * SR) + int(0.02 * SR))
-        out.append(audio[pos:s] * 0.82)
-        seg = audio[s:e]
-        seg = librosa.effects.pitch_shift(seg, sr=SR, n_steps=2.0)
-        seg = librosa.effects.time_stretch(seg, rate=0.82)
-        seg = seg * 1.45
-        if len(seg) > 2 * fade:  # soft edges so the join does not click
-            ramp = np.linspace(0, 1, fade, dtype=np.float32)
-            seg[:fade] *= ramp
-            seg[-fade:] *= ramp[::-1]
-        out.append(seg.astype(np.float32))
-        pos = e
-    out.append(audio[pos:] * 0.82)
-    return np.concatenate(out), True
+        marked = ' '.join(f'[{w}](+2)' for w in phrase.split())
+        s2 = re.sub(r'(?<![\w\[])' + re.escape(phrase) + r'(?![\w\]])', marked, say, count=1)
+        say = s2
+    return say
+
+
+def cut_to_words(audio, words):
+    """Keep only Kokoro's own word span (+ a short lead and tail); fade in and out."""
+    spans = [w for w in words if re.search(r'[A-Za-z]', w[0] or '')]
+    if spans:
+        start = max(0, int((spans[0][1] - 0.03) * SR))
+        end = min(len(audio), int((spans[-1][2] + 0.15) * SR))
+        if end - start > int(0.1 * SR):
+            audio = audio[start:end].copy()
+    fi, fo = int(0.02 * SR), int(0.04 * SR)
+    if len(audio) > fi + fo:
+        audio[:fi] *= np.linspace(0, 1, fi, dtype=np.float32)
+        audio[-fo:] *= np.linspace(1, 0, fo, dtype=np.float32)
+    return audio
 
 
 def finish(audio):
-    audio, _ = librosa.effects.trim(audio, top_db=40)
     pad = np.zeros(int(0.08 * SR), np.float32)
     audio = np.concatenate([pad, audio, pad])
     peak = float(np.max(np.abs(audio))) or 1.0
@@ -133,21 +125,18 @@ def main():
     print(f'{len(items)} clips to record with Kokoro voice {args.voice}.')
 
     pipe = KPipeline(lang_code='b')  # British English
-    done = failed = emph_missed = 0
+    done = failed = 0
     t0 = time.time()
     for n, it in enumerate(items, 1):
         try:
             if it.get('ipa'):
                 text = f"[{it['say']}](/{ipa_to_kokoro(it['ipa'])}/)"
+            elif it.get('emph'):
+                text = mark_emphasis(it['say'], it['emph'])
             else:
                 text = it['say']
-            sentence = ' ' in it['say'].strip()
-            audio, words = synth(pipe, text, args.voice, 0.95 if sentence else 0.9)
-            if it.get('emph'):
-                audio, ok = emphasise(audio, words, it['emph'])
-                if not ok:
-                    emph_missed += 1
-                    print(f"  emphasis not placed: {it['text']}")
+            audio, words = synth(pipe, text, args.voice, 1.0)
+            audio = cut_to_words(audio, words)
             to_mp3(finish(audio), os.path.join(out_dir, f"{it['key']}.mp3"))
             done += 1
         except Exception as e:  # keep going; a re-run fills the gaps
@@ -157,7 +146,7 @@ def main():
             write_manifest(out_dir, args.voice)
             print(f'  {n}/{len(items)} ({time.time() - t0:.0f}s)')
     total = write_manifest(out_dir, args.voice)
-    print(f'Recorded {done}, failed {failed}, emphasis not placed {emph_missed}. Manifest lists {total} clips.')
+    print(f'Recorded {done}, failed {failed}. Manifest lists {total} clips.')
     sys.exit(1 if failed else 0)
 
 

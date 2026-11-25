@@ -1,70 +1,176 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-// TECHMED Oral English Guide: the interactive page the book sends students to.
-// Everything on it (Listen, Word Bank, Challenge) is for book owners only and is
-// loaded after sign-in through the oral_* database functions, which check access.
-// Nothing from the book or the question bank is in this file or the built site.
+// TECHMED Oral English Guide: the interactive page the book sends students to, and a
+// public landing page for "JAMB oral English" searches.
+//  - Everyone sees the landing content below (indexable HTML) with a FREE preview:
+//    a few words to hear and a 6-question taster. These samples are public on purpose.
+//  - Owners of the book (and Mastery/Ultimate students) get the full app: Listen, Word
+//    Bank and five timed challenges, loaded after sign-in through the oral_* database
+//    functions, which check access. The full question bank never ships in this file.
 const BUY_URL = '/resources';
+const PRICE = '₦1,000';
 const PARTS = [
-  { n: 1, name: 'Vowels', short: 'Vowels' },
-  { n: 2, name: 'Consonants', short: 'Consonants' },
-  { n: 3, name: 'Word Stress', short: 'Stress' },
-  { n: 4, name: 'Emphatic Stress', short: 'Emphatic' },
-  { n: 5, name: 'Rhymes', short: 'Rhymes' },
+  { n: 1, name: 'Vowels', short: 'Vowels', q: 106, about: 'All 20 British English vowel sounds, words that lie about their spelling, and contrast pairs like ship and sheep.' },
+  { n: 2, name: 'Consonants', short: 'Consonants', q: 89, about: 'Consonant sounds students mix up (th, sh, zh, ch, j), twin pairs, -ed and -s endings, and silent letters.' },
+  { n: 3, name: 'Word Stress', short: 'Stress', q: 119, about: 'Which syllable is strongest, the rules that decide it, and noun–verb pairs like EXport and exPORT.' },
+  { n: 4, name: 'Emphatic Stress', short: 'Emphatic', q: 60, about: '70 sentences showing how moving the stressed word changes the meaning, and how JAMB tests it.' },
+  { n: 5, name: 'Rhymes', short: 'Rhymes', q: 47, about: 'Words that rhyme though they look different, and words that look alike but do not rhyme.' },
 ];
+// Free preview. Public by design: a taste of the book, not the bank.
+const SAMPLE_PAIRS = [
+  { label: 'Same letters, different sound', words: ['ship', 'sheep'] },
+  { label: 'Spelling lies', words: ['colonel', 'plait', 'heir', 'buoy'] },
+  { label: 'Stress changes the word', words: ['EXport (noun)', 'exPORT (verb)'] },
+  { label: 'Silent letters', words: ['psychology', 'gnash', 'debt', 'listen'] },
+];
+const SAMPLE_QUIZ = [
+  { part: 'Vowels', src: 'JAMB', instruction: 'Choose the word that does not have the same vowel sound as the others.', prompt: '', options: ['loot', 'boot', 'rout', 'route'], correct: 2, why: 'rout has /aʊ/, like out. loot, boot and route all have /uː/.' },
+  { part: 'Vowels', src: 'JAMB', instruction: 'Choose the option that has the same vowel sound as the one represented by the underlined letter(s).', prompt: 'c<u>olo</u>nel', options: ['golden', 'girl', 'colony', 'gaol'], correct: 1, why: 'colonel is /ˈkɜːnl/. The olo says /ɜː/, like the ir in girl.' },
+  { part: 'Consonants', src: 'JAMB', instruction: 'Choose the option that has the same consonant sound as the one represented by the underlined letter(s).', prompt: '<u>th</u>ank', options: ['though', 'thought', 'Thames', 'Thomas'], correct: 1, why: 'th in thank is /θ/, like thought. Thames and Thomas start with /t/.' },
+  { part: 'Word Stress', src: 'JAMB', instruction: 'Choose the word that has the same stress pattern as the given word.', prompt: 'enormous', options: ['interest', 'solution', 'stupidly', 'character'], correct: 1, why: 'enORmous is stressed on the 2nd syllable, like soLUtion.' },
+  { part: 'Emphatic Stress', src: 'JAMB', instruction: 'The word in capital letters has the emphatic stress. Choose the option to which the sentence relates.', prompt: 'They FLEW to Abuja.', options: ['Did they go to Abuja by road?', 'Did they fly to Jos?', 'How will they get to Abuja?', 'Where did they fly to?'], correct: 0, why: 'FLEW corrects "by road": they went by air.' },
+  { part: 'Rhymes', src: 'JAMB', instruction: 'Choose the option that rhymes with the given word.', prompt: 'sweet', options: ['twice', 'sweat', 'suite', 'suit'], correct: 2, why: 'sweet and suite sound exactly the same: /swiːt/.' },
+];
+const FAQ = [
+  { q: 'What is tested in JAMB oral English?', a: 'The oral section of UTME Use of English tests vowel sounds, consonant sounds, rhymes, word stress and emphatic stress. Questions ask you to match sounds, find the odd one out, pick the stressed syllable, or choose the question a stressed sentence answers.' },
+  { q: 'Why do I need to hear the words?', a: 'Oral English is about sound, and spelling often lies: colonel sounds like "kernel", heir like "air", and plait rhymes with "cat". Hearing each word in British English, the standard JAMB uses, is the quickest way to stop guessing.' },
+  { q: 'What do I get with the TECHMED Oral English Guide?', a: `The ebook, plus this page: every sound, word and sentence from the book to listen to, a Word Bank of about 1,500 words (including every word in the past questions), and five timed challenges built from 421 JAMB past and practice questions with explanations.` },
+  { q: 'How much does it cost?', a: `${PRICE}. It is also included in the TECHMED Mastery and Ultimate plans.` },
+  { q: 'Does it work on my phone?', a: 'Yes. The page is made for phones and loads each word only when you tap it, so it works on slow data.' },
+  { q: 'Can I try it before buying?', a: 'Yes. The free preview on this page lets you hear sample words and answer six real JAMB oral English questions with explanations.' },
+];
+const ld = [
+  {
+    '@context': 'https://schema.org', '@type': 'Product',
+    name: 'TECHMED Oral English Guide', brand: { '@type': 'Brand', name: 'TECHMED' },
+    description: 'JAMB UTME oral English guide with British English audio for every word, a 1,500-word pronunciation bank and 421 past and practice questions with explanations.',
+    image: 'https://techmedng.com/images/og/oral-english.png', url: 'https://techmedng.com/oral-english',
+    offers: { '@type': 'Offer', price: '1000', priceCurrency: 'NGN', availability: 'https://schema.org/PreOrder', url: 'https://techmedng.com/oral-english' },
+  },
+  {
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  },
+];
+const promptHtml = (p: string) => p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/&lt;u&gt;/g, '<u>').replace(/&lt;\/u&gt;/g, '</u>');
 ---
 
 <BaseLayout
-  title="Oral English | TECHMED"
-  description="Hear every sound, word and stress pattern from the TECHMED Oral English Guide in British English, then test yourself with timed challenges."
+  title="JAMB Oral English with Audio: Vowels, Consonants, Stress & Rhymes | TECHMED"
+  description="Hear every JAMB oral English word in British English, then practise 421 UTME past and practice questions on vowels, consonants, word stress, emphatic stress and rhymes. Free preview."
+  ogImage="/images/og/oral-english.png"
+  jsonLd={ld}
 >
   <main class="oe" id="oe" data-buy-url={BUY_URL}>
     <header class="oe-head">
-      <p class="oe-kicker">TECHMED Oral English Guide</p>
-      <h1>Oral English</h1>
-      <p class="oe-lead">Tap any word to hear it in British English. Then test yourself.</p>
+      <p class="oe-kicker">UTME Use of English</p>
+      <h1>JAMB Oral English, with audio</h1>
+      <p class="oe-lead">Vowels, consonants, word stress, emphatic stress and rhymes. Tap any word to hear it in British English, then test yourself on real JAMB questions.</p>
     </header>
 
-    <!-- Loading -->
-    <section class="oe-state" data-state="loading">
+    <!-- Access bar: what this visitor can do -->
+    <section class="oe-state oe-statebar" data-state="loading">
       <div class="oe-spinner" aria-hidden="true"></div>
-      <p>Opening your Oral English page…</p>
+      <p>Checking your access…</p>
     </section>
 
-    <!-- Signed out -->
     <section class="oe-state oe-locked" data-state="signed-out" hidden>
-      <div class="oe-lock" aria-hidden="true">🔒</div>
-      <h2>Sign in to open your Oral English page</h2>
-      <p>This page comes with the TECHMED Oral English Guide. Sign in with the account you used to buy the book.</p>
+      <h2>Get the full Oral English page</h2>
+      <p>Every word in the book to hear, a 1,500-word Word Bank, and 5 timed challenges from 421 questions. {PRICE}, or included in Mastery and Ultimate.</p>
       <div class="oe-actions">
-        <a class="oe-btn oe-btn-primary" href="/login?redirect=/oral-english">Sign in</a>
-        <a class="oe-btn" href={BUY_URL}>Get the book</a>
+        <a class="oe-btn oe-btn-primary" href={BUY_URL}>Get the guide · {PRICE}</a>
+        <a class="oe-btn" href="/login?redirect=/oral-english">I have it: sign in</a>
       </div>
+      <p class="oe-small"><a href="#preview">Or try the free preview below ↓</a></p>
     </section>
 
-    <!-- Signed in, does not own the book -->
     <section class="oe-state oe-locked" data-state="locked" hidden>
-      <div class="oe-lock" aria-hidden="true">🔒</div>
-      <h2>This page comes with the Oral English Guide</h2>
-      <p>Get the book to unlock everything here:</p>
+      <h2>Unlock the full Oral English page</h2>
       <ul class="oe-perks">
         <li><strong>Listen:</strong> every sound, word and sentence from the book, in British English</li>
         <li><strong>Word Bank:</strong> about 1,500 words you can hear, including every word in the past questions</li>
         <li><strong>Challenge:</strong> 5 timed quizzes built from 421 JAMB and practice questions</li>
       </ul>
       <div class="oe-actions">
-        <a class="oe-btn oe-btn-primary" href={BUY_URL}>Get the book</a>
+        <a class="oe-btn oe-btn-primary" href={BUY_URL}>Get the guide · {PRICE}</a>
       </div>
       <p class="oe-small">Included in the TECHMED Mastery and Ultimate plans. Already bought it, or on one of those plans? Make sure you are signed in with the same email you paid with. <span data-signed-email></span></p>
     </section>
 
-    <!-- Could not load -->
     <section class="oe-state" data-state="error" hidden>
       <h2>We couldn't open the page</h2>
       <p>Check your internet connection and try again.</p>
       <div class="oe-actions"><button class="oe-btn oe-btn-primary" type="button" data-retry>Try again</button></div>
     </section>
+
+    <!-- Public landing content (hidden for owners, who get the full app) -->
+    <div data-landing>
+      <section class="oe-sec" id="preview" aria-labelledby="preview-h">
+        <h2 id="preview-h">Free preview: hear it</h2>
+        <p class="oe-intro">Tap a word. These are some of the words students get wrong most often.</p>
+        <div class="oe-sample">
+          {SAMPLE_PAIRS.map((g) => (
+            <div class="oe-group">
+              <p class="oe-group-title">{g.label}</p>
+              <div class="oe-words">
+                {g.words.map((w) => <button type="button" class="oe-word" data-say={w}>{w}</button>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="oe-sec" aria-labelledby="taster-h">
+        <h2 id="taster-h">Free preview: 6 real JAMB questions</h2>
+        <p class="oe-intro">One from each part of the guide. Tap an answer to see if you are right, and why.</p>
+        <ol class="oe-review oe-taster">
+          {SAMPLE_QUIZ.map((q, i) => (
+            <li class="oe-tq" data-correct={q.correct}>
+              <p class="oe-small" style="margin:0 0 6px">Question {i + 1} · {q.part} · {q.src}</p>
+              <p class="oe-instr">{q.instruction}</p>
+              {q.prompt && <p class="oe-prompt" set:html={promptHtml(q.prompt)} />}
+              <div class="oe-opts">
+                {q.options.map((o, k) => (
+                  <button type="button" class="oe-opt" data-k={k}><span class="oe-letter">{'ABCD'[k]}</span><span class="oe-opt-text">{o}</span></button>
+                ))}
+              </div>
+              <p class="oe-expl" hidden>{q.why}</p>
+            </li>
+          ))}
+        </ol>
+        <div class="oe-taster-score" data-taster-score hidden>
+          <p><strong data-taster-num></strong></p>
+          <p>The full guide has 421 questions like these, each with an explanation, plus every word to hear.</p>
+          <div class="oe-actions"><a class="oe-btn oe-btn-primary" href={BUY_URL}>Get the guide · {PRICE}</a></div>
+        </div>
+      </section>
+
+      <section class="oe-sec" aria-labelledby="inside-h">
+        <h2 id="inside-h">What's inside the guide</h2>
+        <div class="oe-chcards">
+          {PARTS.map((p) => (
+            <div class="oe-chcard">
+              <span class="oe-part-n">{p.n}</span>
+              <div class="oe-chcard-body"><strong>{p.name}</strong><span>{p.about} {p.q} practice questions.</span></div>
+            </div>
+          ))}
+        </div>
+        <div class="oe-price">
+          <div><span class="oe-price-num">{PRICE}</span><span class="oe-small">Ebook + this interactive page. Included in Mastery and Ultimate.</span></div>
+          <a class="oe-btn oe-btn-primary" href={BUY_URL}>Get the guide</a>
+        </div>
+      </section>
+
+      <section class="oe-sec" aria-labelledby="faq-h">
+        <h2 id="faq-h">Questions students ask</h2>
+        <div class="oe-faq">
+          {FAQ.map((f) => (
+            <details><summary>{f.q}</summary><p>{f.a}</p></details>
+          ))}
+        </div>
+      </section>
+    </div>
 
     <!-- Ready -->
     <section data-state="ready" hidden>
@@ -297,6 +403,29 @@ const PARTS = [
   .oe-tag.no { background: rgba(198, 40, 40, 0.12); color: #c62828; }
   .oe-tag.skip { background: var(--surface-raised); color: var(--text-muted); }
 
+  /* Landing (public) */
+  .oe [hidden] { display: none !important; }
+  .oe-statebar { padding: 12px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .oe-statebar .oe-spinner { width: 20px; height: 20px; margin: 0; border-width: 2px; }
+  .oe-statebar p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+  .oe-locked h2 { margin-bottom: 6px; }
+  .oe-sec { margin-top: 36px; }
+  .oe-sec > h2 { font-size: 1.4rem; margin-bottom: 4px; }
+  .oe-sample { margin-top: 12px; }
+  .oe-taster { margin-top: 12px; }
+  .oe-tq .oe-opt:disabled { cursor: default; }
+  .oe-tq .oe-opt.is-right { border-color: #2e7d32; background: rgba(46, 125, 50, 0.12); }
+  .oe-tq .oe-opt.is-wrong { border-color: #c62828; background: rgba(198, 40, 40, 0.1); }
+  .oe-taster-score { text-align: center; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius-lg); padding: 20px 16px; }
+  .oe-taster-score strong { font: 800 1.6rem var(--font-display); }
+  .oe-price { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 16px; border-radius: var(--radius); background: var(--surface-dark); color: var(--text-on-dark-surface); }
+  .oe-price > div { display: flex; flex-direction: column; gap: 2px; }
+  .oe-price-num { font: 800 1.9rem var(--font-display); color: var(--accent); }
+  .oe-price .oe-small { color: var(--text-light-on-dark-surface); }
+  .oe-faq details { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 14px; margin-bottom: 8px; }
+  .oe-faq summary { cursor: pointer; font-weight: 700; padding: 14px 0; }
+  .oe-faq p { margin: 0 0 14px; line-height: 1.6; color: var(--text-light); }
+
   @media (min-width: 640px) {
     .oe { padding-top: 40px; }
     .oe-opts { grid-template-columns: 1fr 1fr; }
@@ -342,6 +471,8 @@ const PARTS = [
 
   function showState(name: string) {
     $$('[data-state]').forEach((s) => (s.hidden = s.dataset.state !== name));
+    // Owners get the full app; everyone else keeps the public landing content.
+    $('[data-landing]').hidden = name === 'ready';
   }
 
   // ---------------------------------------------------------------------------
@@ -869,7 +1000,7 @@ const PARTS = [
       return;
     }
     DATA = data as PageData;
-    await Audio_.loadManifest();
+    await manifestReady;
     const note = $('[data-voice-note]');
     if (Audio_.clips.size === 0) {
       note.hidden = false;
@@ -891,6 +1022,28 @@ const PARTS = [
     void e;
   });
   $('[data-retry]').addEventListener('click', boot);
+
+  // Free preview (public): sample words and the 6-question taster.
+  const manifestReady = Audio_.loadManifest();
+  $$('[data-say]').forEach((b) => b.addEventListener('click', () => Audio_.play(b.dataset.say!, b)));
+  const tasterQs = $$('.oe-tq');
+  let tasterDone = 0;
+  let tasterRight = 0;
+  tasterQs.forEach((li) => {
+    const correct = Number(li.dataset.correct);
+    const opts = $$<HTMLButtonElement>('.oe-opt', li);
+    opts.forEach((b) => b.addEventListener('click', () => {
+      const k = Number(b.dataset.k);
+      opts.forEach((o, i) => { o.disabled = true; if (i === correct) o.classList.add('is-right'); });
+      if (k === correct) tasterRight++; else b.classList.add('is-wrong');
+      $('.oe-expl', li).hidden = false;
+      tasterDone++;
+      if (tasterDone === tasterQs.length) {
+        $('[data-taster-num]').textContent = `You got ${tasterRight} of ${tasterQs.length}`;
+        $('[data-taster-score]').hidden = false;
+      }
+    }));
+  });
   window.addEventListener('hashchange', () => { if (DATA) route(); });
   // If a different person signs in (or the student signs out) in another tab, follow
   // along. Token refreshes and focus events keep the same user and never reload,
