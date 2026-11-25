@@ -23,16 +23,16 @@ It is for book owners only. The page lives on the website, not KAIRO, because KA
 ## Access
 
 - Product id: `oral-english-guide`, a `resource`.
-- It was created **inactive**, with a placeholder price of ₦2,000 and `metadata.price_confirmed = false`.
-- To put it on sale, set the real price and then activate it:
+- Price: **₦1,000** (Core members get the usual plan discount at checkout).
+- **Included in Mastery and Ultimate** (every variant). Current plan holders were given access when it was added.
+- The product is **inactive** (no checkout) until the book's PDF is uploaded, as the Physics Workbook was. Plan holders and admins can use the page already. To put it on sale once the PDF is in the `paid-resources` bucket:
   ```sql
-  UPDATE public.products SET price_ngn = <price>, is_active = true,
-         metadata = metadata || '{"price_confirmed": true}', updated_at = now()
+  UPDATE public.products SET is_active = true,
+         metadata = metadata || jsonb_build_object('file_path', '<file>.pdf'), updated_at = now()
   WHERE id = 'oral-english-guide';
   ```
 - Buying it writes an entitlement through the normal payment flow. That one entitlement unlocks Listen, the Word Bank and all five challenges.
 - Admins can open the page at any time to test it.
-- It is not yet included in any plan. To include it, add it to the plans' `bundle_item_ids`, as the Physics books were.
 - The locked page's "Get the book" button points to `/resources` until the book has its own resource page. Change `BUY_URL` in the page when it does.
 
 ## Links for the book
