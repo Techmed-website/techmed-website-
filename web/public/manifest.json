@@ -47,7 +47,7 @@
       "name": "Study Planner",
       "short_name": "Planner",
       "description": "Custom 12-week UTME preparation roadmap",
-      "url": "/tools/study-planner",
+      "url": "/dashboard?view=planner",
       "icons": [{ "src": "/favicon.png", "sizes": "96x96" }]
     }
   ]

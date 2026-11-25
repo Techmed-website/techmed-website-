@@ -111,10 +111,10 @@ const quizzes: PublicQuiz[] = await getPublicQuizzes();
   function kairoCard(): string {
     return `
       <article class="qh-card qh-card--kairo">
-        <div class="qh-chips"><span class="qh-chip">All subjects</span><span class="qh-badge qh-badge--soon">Coming soon</span></div>
-        <h3 class="qh-title">Kairo — TECHMED CBT</h3>
-        <p class="qh-desc">TECHMED's own CBT practice platform: timed drills, instant results and progress tracking, right inside your dashboard.</p>
-        <button class="qh-btn qh-btn--ghost" type="button" disabled>Coming soon</button>
+        <div class="qh-chips"><span class="qh-chip">All subjects</span><span class="qh-badge qh-badge--live">Live &amp; free</span></div>
+        <h3 class="qh-title">KAIRO: free JAMB CBT practice</h3>
+        <p class="qh-desc">13,000+ past questions in every subject, a daily quiz with a leaderboard and instant results. No activation code, no PIN.</p>
+        <a class="qh-btn" href="https://kairo.techmedng.com" target="_blank" rel="noopener">Open KAIRO</a>
       </article>`;
   }
 
@@ -152,9 +152,7 @@ const quizzes: PublicQuiz[] = await getPublicQuizzes();
       action = `<button class="qh-btn qh-btn--ghost" type="button" disabled>Closed</button>`;
     }
     const platformNote =
-      q.state === 'open' && q.platform === 'QuizBoot'
-        ? `<p class="qh-note">Opens on QuizBoot in a new tab. A free QuizBoot account is needed.</p>`
-        : '';
+'';
     return `
       <article class="qh-card" data-category="${q.category}" data-slug="${esc(q.slug || '')}">
         <div class="qh-chips">

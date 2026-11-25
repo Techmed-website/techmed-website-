@@ -178,18 +178,18 @@ const jsonLd = [
   <!-- Kairo Digital Platform Section -->
   {kairo && (
     <section class="digital-tools">
-      <SectionHeading eyebrow="Digital Learning Platform" title="Kairo Intelligence" align="center" />
+      <SectionHeading eyebrow="Digital Learning Platform" title="KAIRO: free CBT practice" align="center" />
       <div class="kairo-card reveal">
         {kairo.primaryImage ? (
-          <img class="kairo-image" src={kairo.primaryImage} alt="Kairo" loading="lazy" decoding="async" />
+          <img class="kairo-image" src={kairo.primaryImage} alt="KAIRO" loading="lazy" decoding="async" />
         ) : (
           <div class="icon" set:html={resourceIcon(kairo)} />
         )}
         <p class="positioning">
-          Kairo is a student intelligence and learning platform designed to understand the
-          learner's journey and help them make meaningful progress.
+          KAIRO is live and free. Practise JAMB CBT with 13,000+ past questions in every subject,
+          take the daily quiz and climb the leaderboard. No activation code, no PIN.
         </p>
-        <a class="btn-primary" href={kairo.accessUrl}>Launch Kairo CBT</a>
+        <a class="btn-primary" href={kairo.accessUrl} target="_blank" rel="noopener">Open KAIRO (free)</a>
       </div>
     </section>
   )}

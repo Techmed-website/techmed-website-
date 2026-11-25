@@ -4,3 +4,7 @@
 /library/physics-calculation-workbook  /resources/physics-calculation-workbook  301
 /library/physics-master-formula-bank   /resources/physics-master-formula-bank   301
 /library/physics-challenge             /resources/physics-challenge             301
+/tools                      /dashboard?view=planner  301
+/tools/study-planner        /dashboard?view=planner  301
+/tools/study-planner/       /dashboard?view=planner  301
+/tools/                     /dashboard?view=planner  301

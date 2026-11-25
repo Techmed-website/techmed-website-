@@ -1,9 +1,8 @@
 ---
 // Ecosystem section, per the "Built to Last" refinement brief: grouped
 // around the student journey (KNOW -> LEARN -> PRACTISE -> DIAGNOSE ->
-// IMPROVE -> REPEAT) instead of a flat catalogue. Route mapping: KAIRO and
-// CBT Practice live under /tools (the "product tools" hub, still a
-// placeholder); Study Blueprints under its own real hub,
+// IMPROVE -> REPEAT) instead of a flat catalogue. Route mapping: KAIRO is the live app at
+// kairo.techmedng.com and CBT Practice points to /quizzes (the old /tools hub is retired); Study Blueprints under its own real hub,
 // /jamb-syllabus-2027; Builder Sessions and Builder Cohort both point to
 // /utme-2027/builders, the one page that actually explains the Builder
 // Cohort (/cohort is still a placeholder). Revisit this mapping once any
@@ -32,9 +31,9 @@ const icons = {
 // stage label is what a first-time visitor reads first on the card.
 const items = [
   { stage: 'Know What Matters', title: 'Study Blueprints', description: "TECHMED's optimized presentation of the official JAMB syllabus, so you always know what to study next.", href: '/jamb-syllabus-2027', icon: icons.blueprint },
-  { stage: 'Know What To Do Next', title: 'KAIRO', description: 'Learns from your performance and helps identify what to study, practise, fix and revisit next.', href: '/tools', icon: icons.kairo },
+  { stage: 'Know What To Do Next', title: 'KAIRO', description: 'Free JAMB CBT practice with 13,000+ past questions, a daily quiz and a leaderboard. No activation code, no PIN.', href: 'https://kairo.techmedng.com', icon: icons.kairo },
   { stage: 'Build Understanding', title: 'Builder Sessions', description: 'Weekly concept breakdowns and past-question analysis that build real understanding, not memorization.', href: '/utme-2027/builders', icon: icons.session },
-  { stage: 'Practise With Purpose', title: 'Challenges & CBT Practice', description: 'Timed, exam-format practice and quizzes that sharpen speed, accuracy and confidence.', href: '/tools', icon: icons.cbt },
+  { stage: 'Practise With Purpose', title: 'Challenges & CBT Practice', description: 'Timed, exam-format practice and quizzes that sharpen speed, accuracy and confidence.', href: '/quizzes', icon: icons.cbt },
   { stage: 'Stay Consistent', title: 'Builder Cohort', description: "Your academic home inside TECHMED — an assigned classroom, not a public group. You don't prepare alone.", href: '/utme-2027/builders', icon: icons.community },
   { stage: 'Build Beyond The Score', title: '5 Minutes Forward', description: 'A daily podcast habit for the discipline and character behind the score.', href: '/podcast', icon: icons.podcast },
 ];
