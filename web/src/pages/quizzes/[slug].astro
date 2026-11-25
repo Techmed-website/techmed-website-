@@ -16,17 +16,26 @@ const slug = (Astro.params.slug ?? '').toLowerCase();
 let kq: KairoQuiz | null = null;
 let board: BoardRow[] = [];
 let sq: PublicQuiz | null = null;
+// True when KAIRO could not be reached (not the same as "no such quiz"): we must never show "not found" for a slow moment.
+let unreachable = false;
 if (/^[a-z0-9-]{1,96}$/.test(slug)) {
-  try { kq = await getKairoQuiz(slug); } catch { kq = null; }
+  // One quick retry: a single slow or dropped request used to turn into "We couldn't find that quiz".
+  for (let tryNo = 0; tryNo < 2; tryNo++) {
+    try { kq = await getKairoQuiz(slug, tryNo === 0 ? 4000 : 5000); unreachable = false; break; }
+    catch { unreachable = true; }
+  }
   if (kq) {
-    try { board = await getKairoBoard(kq.id, 10); } catch { board = []; }
-  } else {
+    // The leaderboard is a nice extra: never let it hold the page up for long.
+    try { board = await getKairoBoard(kq.id, 10, 2500); } catch { board = []; }
+  } else if (!unreachable) {
     sq = await getSanityQuizBySlug(slug);
   }
 }
-if (!kq && !sq) Astro.response.status = 404;
-// Short shared cache: fresh enough for a live leaderboard, cheap under a WhatsApp rush.
-Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60');
+const softFail = !kq && !sq && unreachable;
+if (!kq && !sq) Astro.response.status = softFail ? 503 : 404;
+if (softFail) Astro.response.headers.set('Retry-After', '3');
+// Short shared cache: fresh enough for a live leaderboard, cheap under a WhatsApp rush. Never cache a failure.
+Astro.response.headers.set('Cache-Control', softFail || (!kq && !sq) ? 'no-store' : 'public, max-age=60, s-maxage=60');
 
 const site = Astro.site!;
 const pageUrl = new URL(`/quizzes/${slug}/`, site).toString();
@@ -166,7 +175,16 @@ const jsonLd = kq || sq
     </main>
   )}
 
-  {!kq && !sq && (
+  {softFail && (
+    <main class="quiz-detail" data-soft-fail>
+      <h1>Opening your quiz…</h1>
+      <p class="qd-desc">The connection is slow right now. This page will try again in a moment, or open the quiz straight on KAIRO.</p>
+      <p><a class="kq-btn" href="https://kairo.techmedng.com/quizzes">Open on KAIRO</a></p>
+      <p class="qd-back"><a href="" data-retry>Try again</a></p>
+    </main>
+  )}
+
+  {!kq && !sq && !softFail && (
     <main class="quiz-detail">
       <h1>We couldn’t find that quiz</h1>
       <p class="qd-desc">The link may be mistyped, or the quiz has been removed. Today’s free quizzes are one tap away.</p>
@@ -174,6 +192,17 @@ const jsonLd = kq || sq
     </main>
   )}
 </BaseLayout>
+
+<script>
+  // Slow-connection page: retry by itself a couple of times before leaving it to the student.
+  if (document.querySelector('[data-soft-fail]')) {
+    const n = Number(sessionStorage.getItem('quiz-retry') || 0);
+    if (n < 2) { sessionStorage.setItem('quiz-retry', String(n + 1)); setTimeout(() => location.reload(), 3000); }
+    else sessionStorage.removeItem('quiz-retry');
+  } else {
+    try { sessionStorage.removeItem('quiz-retry'); } catch { /* storage blocked */ }
+  }
+</script>
 
 <script>
   import { getSupabase } from '../../lib/supabase';

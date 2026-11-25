@@ -63,9 +63,9 @@ async function rpc<T>(fn: string, args: Record<string, unknown>, timeoutMs = 600
   }
 }
 
-export const getKairoQuiz = (slug: string) => rpc<KairoQuiz | null>('public_quiz', { p_slug: slug });
+export const getKairoQuiz = (slug: string, timeoutMs = 6000) => rpc<KairoQuiz | null>('public_quiz', { p_slug: slug }, timeoutMs);
 export const getKairoQuizzes = () => rpc<KairoQuiz[]>('public_quizzes', {});
-export const getKairoBoard = (id: string, limit = 10) => rpc<BoardRow[]>('public_leaderboard', { p_assessment: id, p_limit: limit });
+export const getKairoBoard = (id: string, limit = 10, timeoutMs = 6000) => rpc<BoardRow[]>('public_leaderboard', { p_assessment: id, p_limit: limit }, timeoutMs);
 
 /** Where the Start button goes: straight into the quiz on KAIRO (sign-in or guest play happens there). */
 export const startUrl = (q: Pick<KairoQuiz, 'id'>) => `${KAIRO_URL}/q/${q.id}`;
