@@ -17,11 +17,10 @@ Everyone else sees a landing page, written into the HTML so search engines and A
 
 Search and sharing:
 - Title and meta description target "JAMB oral English" and "UTME".
-- JSON-LD covers the Product (₦1,000, PreOrder until checkout opens) and an FAQPage.
+- JSON-LD covers the Product (₦1,000, InStock, linking to the resource page) and an FAQPage.
 - The share image is `web/public/images/og/oral-english.png`, shown on WhatsApp, Facebook and X.
 - `web/public/llms.txt` describes the page for AI assistants.
 - The page is in the sitemap.
-- When checkout opens, change the Product `availability` to `InStock`.
 
 ## Where things are
 
@@ -41,15 +40,13 @@ Search and sharing:
 - Product id: `oral-english-guide`, a `resource`.
 - Price: **₦1,000** (Core members get the usual plan discount at checkout).
 - **Included in Mastery and Ultimate** (every variant). Current plan holders were given access when it was added.
-- The product is **inactive** (no checkout) until the book's PDF is uploaded, as the Physics Workbook was. Plan holders and admins can use the page already. To put it on sale once the PDF is in the `paid-resources` bucket:
-  ```sql
-  UPDATE public.products SET is_active = true,
-         metadata = metadata || jsonb_build_object('file_path', '<file>.pdf'), updated_at = now()
-  WHERE id = 'oral-english-guide';
-  ```
-- Buying it writes an entitlement through the normal payment flow. That one entitlement unlocks Listen, the Word Bank and all five challenges.
+- **On sale since 26 Nov 2026.** The ebook is `paid-resources/oral-english-guide.pdf` (224 pages, A5, 2.2 MB), set as `products.metadata.file_path`. It is read online in the TECHMED Library.
+  - The PDF was made from the final .docx with LibreOffice, with the book's fonts (Montserrat, Source Sans 3) installed, so they are embedded.
+  - All 11 links in it are clickable.
+- It is listed on `/resources` as `/resources/oral-english-guide`, under the new "English" subject filter, with the entry in `web/src/lib/resources.ts`.
+- Every "Get the guide" button on `/oral-english` points to that resource page (`BUY_URL`).
+- Buying it writes an entitlement through the normal payment flow. That one entitlement unlocks the ebook, Listen, the Word Bank and all five challenges.
 - Admins can open the page at any time to test it.
-- The locked page's "Get the book" button points to `/resources` until the book has its own resource page. Change `BUY_URL` in the page when it does.
 
 ## Links for the book
 
@@ -71,9 +68,12 @@ To record or re-record clips:
    ```
 3. Record the clips. This needs Python 3.10 to 3.12 with `pip install "kokoro>=0.9.4" soundfile` (CPU torch is fine) and ffmpeg:
    ```
-   python scripts/kokoro_render.py --plan /path/plan.json
+   python scripts/kokoro_render.py --plan /path/plan.json --verify --report /path/unverified.json
    ```
-   It takes about 0.3 seconds per clip and produces MP3s of about 10 KB each. Use `--limit 20` for a quick trial.
+   `--verify` needs `pip install faster-whisper librosa`, and you should always use it.
+   - Single words are recorded in several ways until a speech recogniser (Whisper `small.en`) hears the right phonemes and nothing sounds after the word. For example, heir heard as "air" passes, while plait heard as "plaid" fails.
+   - Words with no passing take keep the closest take and are listed in the report.
+   - Words are recorded in rounds. Each round records the next take of every word not yet verified, and Whisper hears about 15 takes at once in one 30-second window. All 1,756 clips take about 25 minutes on a 4-core CPU. Use `--limit 20` for a quick trial.
 4. Spot-check the clips, especially the ones the brief lists: plait, heir, colonel, buoy, coup, indict, clerk, says, said, the tear/wind/wound pairs, bath/bathe, chalet, champagne, Thames, Thomas, of, gnash, psychology, every noun–verb pair, and all 70 emphatic sentences.
 5. Commit `web/public/audio/oral/` and deploy.
 
@@ -83,6 +83,11 @@ How each kind of item is read. These rules live in `describe()` and are shared b
 - **Noun–verb pairs** (EXport/exPORT) **and meaning-dependent words** (tear, wind, wound, bow, row, lead, read, live, close, minute, use, dove): the voice is given the exact British IPA.
 - **Emphatic sentences:** read naturally in the same voice. The capitalised word gets Kokoro's own stress marker (`[word](+2)`), which makes a small, natural difference. Nothing is changed after recording. An earlier version made the word louder, longer and higher afterwards, and the founder rejected it because it sounded like a second voice cutting in.
 - **Clean starts:** clips are recorded at normal speed (1.0) and cut to begin 30 ms before Kokoro's own word start, with a short fade-in. At a slower speed (0.9), Kokoro made a stray sound before some words (heir, coup, indict, of, exPORT) that students could mistake for part of the word.
+- **Clean ends:** every clip is cut to exactly the span Kokoro reports for the word, from 30 ms before its start to 50 ms after its end. Anything Kokoro produces after the word (the "extra sounds at the end" the founder heard, for example after "sheep") is dropped.
+  - Do not trim by loudness. A short silence inside a word is the closure of a stop consonant, and the sound after it is the last syllable ("psycholo-gy", "Wednes-day", "thirst-y", "ques-tion", "mar-ch").
+  - An earlier version did trim by loudness, and it cut those syllables off. `trim_tail()` is kept in the script only as a warning and is not used.
+- **Sound-alikes:** a few words that Kokoro garbles on their own are recorded from a spelling with exactly the same British pronunciation: heir as "air", and tear (to rip) as "tare". See `SAY_AS`.
+- **Carrier phrases:** if a word on its own fails, it is recorded as the last word of a short phrase, such as "Next. heir." or "The word is heir.", and only the word is kept.
 - **Wrong stress patterns:** never recorded or playable.
 
 Students can tap **"Sounds wrong?"** in the Word Bank. Reports go to `public.oral_reports`, which only admins can read. To fix a clip, delete its MP3 and re-run the generator.

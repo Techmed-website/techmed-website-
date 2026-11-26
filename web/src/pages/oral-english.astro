@@ -8,7 +8,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 //  - Owners of the book (and Mastery/Ultimate students) get the full app: Listen, Word
 //    Bank and five timed challenges, loaded after sign-in through the oral_* database
 //    functions, which check access. The full question bank never ships in this file.
-const BUY_URL = '/resources';
+const BUY_URL = '/resources/oral-english-guide';
 const PRICE = '₦1,000';
 const PARTS = [
   { n: 1, name: 'Vowels', short: 'Vowels', q: 106, about: 'All 20 British English vowel sounds, words that lie about their spelling, and contrast pairs like ship and sheep.' },
@@ -20,7 +20,7 @@ const PARTS = [
 // Free preview. Public by design: a taste of the book, not the bank.
 const SAMPLE_PAIRS = [
   { label: 'Same letters, different sound', words: ['ship', 'sheep'] },
-  { label: 'Spelling lies', words: ['colonel', 'plait', 'heir', 'buoy'] },
+  { label: 'Spelling lies', words: ['colonel', 'plait', 'Wednesday', 'buoy'] },
   { label: 'Stress changes the word', words: ['EXport (noun)', 'exPORT (verb)'] },
   { label: 'Silent letters', words: ['psychology', 'gnash', 'debt', 'listen'] },
 ];
@@ -46,14 +46,17 @@ const ld = [
     name: 'TECHMED Oral English Guide', brand: { '@type': 'Brand', name: 'TECHMED' },
     description: 'JAMB UTME oral English guide with British English audio for every word, a 1,500-word pronunciation bank and 421 past and practice questions with explanations.',
     image: 'https://techmedng.com/images/og/oral-english.png', url: 'https://techmedng.com/oral-english',
-    offers: { '@type': 'Offer', price: '1000', priceCurrency: 'NGN', availability: 'https://schema.org/PreOrder', url: 'https://techmedng.com/oral-english' },
+    offers: { '@type': 'Offer', price: '1000', priceCurrency: 'NGN', availability: 'https://schema.org/InStock', url: 'https://techmedng.com/resources/oral-english-guide' },
   },
   {
     '@context': 'https://schema.org', '@type': 'FAQPage',
     mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
   },
 ];
-const promptHtml = (p: string) => p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/&lt;u&gt;/g, '<u>').replace(/&lt;\/u&gt;/g, '</u>');
+// Escape everything, then turn only the <u>…</u> markers back into real underlines.
+const promptHtml = (p: string) =>
+  p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/&lt;u&gt;/g, '<u>').replace(/&lt;\/u&gt;/g, '</u>');
 ---
 
 <BaseLayout
