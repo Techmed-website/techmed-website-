@@ -4,3 +4,6 @@ dist
 .cache
 .DS_Store
 .wrangler/
+
+# Python bytecode (from web/scripts/kokoro_render.py)
+__pycache__/

@@ -59,7 +59,7 @@ export interface Resource {
   title: string;
   description: string;
   category: ResourceCategory;
-  subject?: 'Chemistry' | 'Biology' | 'Physics' | 'Admission' | 'General';
+  subject?: 'English' | 'Chemistry' | 'Biology' | 'Physics' | 'Admission' | 'General';
   type: ResourceType;
   status: ResourceStatus;
   /** Naira amount. Omitted entirely (not zero) when pricing isn't public yet. */
@@ -641,6 +641,62 @@ export const FALLBACK_RESOURCES: Resource[] = [
   // Switches: comingSoon (not on sale yet), previewReady (free preview on/off).
   // A file with another name is found through products.metadata.file_path.
   // ---------------------------------------------------------------------
+  {
+    id: 'oral-english-guide',
+    slug: 'oral-english-guide',
+    codeManaged: true,
+    previewReady: false,
+    // File: paid-resources/oral-english-guide.pdf (products.metadata.file_path).
+    // On sale since 26 Nov 2026. The same entitlement unlocks /oral-english.
+    title: 'TECHMED Oral English Guide',
+    tagline: 'Hear the sound. Ignore the spelling. Win the marks.',
+    description:
+      'Every JAMB oral English topic, vowels, consonants, word stress, emphatic stress and rhymes, with British English audio for every word and 421 past and practice questions to test yourself.',
+    category: 'Academic',
+    subject: 'English',
+    type: 'Guide',
+    status: 'paid',
+    order: 1.5,
+    price: 1000,
+    currency: 'NGN',
+    thumbnail: ICONS.guide,
+    primaryImage: '/images/resources/oral-english-guide-cover-600.jpg',
+    ogImage: '/images/og/oral-english.png',
+    featured: true,
+    tags: ['Use of English', 'Oral English', 'JAMB Past Questions', 'Audio', 'Think Smart Series', 'Mastery Included'],
+    actionLabel: 'Unlock E-book',
+    deliveryFormat: 'PDF eBook',
+    isAvailableStandalone: true,
+    watermarkFromPage: 2,
+    book: {
+      series: 'Think Smart Series',
+      edition: 'First Edition 2027',
+      pages: '224',
+      chapters: 5,
+      author: 'TECHMED',
+    },
+    bonus: {
+      label: '+ Audio page & 5 timed challenges',
+      title: 'Included: the interactive Oral English page',
+      text: 'Buying the guide also unlocks techmedng.com/oral-english: every sound, word and sentence from the book to hear in British English, a Word Bank of about 1,500 words, and five timed challenges built from 421 JAMB past and practice questions.',
+    },
+    inclusions: {
+      core: '20% off for active TECHMED Core students (₦800)',
+      mastery: true,
+      ultimate: true,
+      masteryText: 'Free, included in your plan. No separate purchase required.',
+      note: 'Read online in the TECHMED Library. Read-only: no downloads.',
+    },
+    whatsIncluded: [
+      'All five parts of JAMB oral English: vowels, consonants, word stress, emphatic stress and rhymes.',
+      'Every one of the 20 vowel sounds and the consonants students confuse, each with how to say it, its spellings and the traps.',
+      'Words that lie about their spelling (colonel, plait, heir, buoy), silent letters, -ed and -s endings, and noun–verb stress pairs.',
+      '421 JAMB past and TECHMED practice questions, each with the answer explained.',
+      'The interactive Oral English page: hear every word in British English, search a 1,500-word Word Bank, and take five timed challenges.',
+    ],
+    whoItsFor:
+      'Every UTME candidate, because Use of English is compulsory and oral English questions are the ones students most often guess. Also useful for WAEC and NECO.',
+  },
   {
     id: 'physics-calculation-workbook',
     slug: 'physics-calculation-workbook',
