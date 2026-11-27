@@ -1,0 +1,115 @@
+---
+// Live-class check-in for paid TECHMED students (dashboard). Hidden for everyone else.
+// Server rules (cbt.class_checkin): opens 15 min before 7 PM, "late" after 7:15 PM, closes 11 PM, 8 tries per class.
+---
+<section class="dashboard-card cc-card dashboard-view-section" data-section-view="overview" id="classCheckin" hidden aria-labelledby="cc-title">
+  <div class="cc-head">
+    <div>
+      <span class="section-tag">TODAY'S LIVE CLASS</span>
+      <h2 class="card-title" id="cc-title">Class check-in</h2>
+    </div>
+    <div class="cc-rate" id="ccRate" hidden><b id="ccRateNum">–</b><span>attendance</span></div>
+  </div>
+  <p class="cc-when" id="ccWhen">Classes run 7–11 PM, Monday to Saturday.</p>
+  <div id="ccDone" class="cc-done" hidden></div>
+  <form id="ccForm" class="cc-form" hidden autocomplete="off">
+    <label for="ccCode" class="cc-label">Enter the code your tutor shows in class</label>
+    <div class="cc-row">
+      <input id="ccCode" name="code" inputmode="text" maxlength="8" placeholder="e.g. K7M2Q" required />
+      <button type="submit" class="btn-primary" id="ccBtn">Check in</button>
+    </div>
+    <p class="cc-msg" id="ccMsg" role="status" aria-live="polite"></p>
+  </form>
+  <div class="cc-recent" id="ccRecent" aria-label="Recent classes"></div>
+</section>
+
+<style>
+  .cc-card { display: grid; gap: 10px; border: 2px solid var(--color-gold, #C9A227); }
+  .cc-card[hidden], .cc-card [hidden] { display: none !important; }
+  .cc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .cc-rate { text-align: right; display: grid; }
+  .cc-rate b { font-size: 26px; color: var(--color-gold, #C9A227); line-height: 1; }
+  .cc-rate span { font-size: 12px; color: var(--text-light); }
+  .cc-when { margin: 0; color: var(--text-light); }
+  .cc-label { font-size: 14px; font-weight: 700; display: block; margin-bottom: 6px; }
+  .cc-row { display: flex; gap: 8px; }
+  .cc-row input { flex: 1; min-width: 0; font-size: 20px; font-weight: 800; letter-spacing: .25em; text-transform: uppercase; padding: 10px 12px;
+    border-radius: 10px; border: 1px solid var(--border); background: var(--surface-dark, #001D36); color: var(--text); }
+  :global(html[data-theme='light']) .cc-row input { background: #fff; color: #012748; }
+  .cc-msg { margin: 6px 0 0; min-height: 1.2em; font-size: 14px; }
+  .cc-msg.bad { color: #f19999; }
+  :global(html[data-theme='light']) .cc-msg.bad { color: #b23434; }
+  .cc-done { padding: 12px 14px; border-radius: 12px; background: rgba(23, 113, 77, .18); font-weight: 700; }
+  .cc-recent { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cc-recent span { font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-light); }
+  .cc-recent span.present { background: rgba(23, 113, 77, .25); color: var(--text); }
+  .cc-recent span.late { background: rgba(201, 162, 39, .25); color: var(--text); }
+  .cc-recent span.absent { background: rgba(178, 52, 52, .2); }
+</style>
+
+<script>
+  import { getSupabase } from '../lib/supabase';
+  type Stats = { held: number; attended: number; rate: number | null; recent: { date: string; status: string }[] };
+  type Mine = { paid: boolean; plan?: string; today: null | { starts_at: string; ends_at: string; open: boolean; status: string | null; at: string | null }; stats?: Stats };
+  const $ = (id: string) => document.getElementById(id)!;
+  const sb = getSupabase();
+  const t = (iso: string) => new Date(iso).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Lagos' });
+  const REASONS: Record<string, string> = {
+    wrong_code: 'That code is not right. Check the board and try again.',
+    too_many_tries: 'Too many wrong codes for this class. Ask your tutor to mark you present.',
+    closed: 'Check-in for today’s class has closed. Ask your tutor if you attended.',
+    no_class_today: 'There is no class today.',
+    not_enrolled: 'Check-in is for students with an active class plan.',
+    sign_in: 'Sign in again to check in.',
+  };
+
+  function stats(s?: Stats) {
+    if (!s) return;
+    if (s.held > 0) { $('ccRate').hidden = false; $('ccRateNum').textContent = s.rate != null ? `${s.rate}%` : '–'; }
+    $('ccRecent').innerHTML = s.recent.slice(0, 12).map((r) => {
+      const d = new Date(`${r.date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+      return `<span class="${r.status}">${d} · ${r.status}</span>`;
+    }).join('');
+  }
+  function done(status: string) {
+    $('ccForm').hidden = true;
+    const el = $('ccDone'); el.hidden = false;
+    el.textContent = status === 'late' ? '✓ Checked in (late). Make tomorrow on time!' : status === 'excused' ? 'You are excused for today’s class.' : '✓ You are checked in for today’s class. Learn well!';
+  }
+
+  async function load() {
+    const { data: s } = await sb.auth.getSession();
+    if (!s.session || s.session.user.is_anonymous) return;
+    const { data, error } = await sb.schema('cbt').rpc('my_attendance');
+    const m = data as Mine | null;
+    if (error || !m || !m.paid) return;
+    $('classCheckin').hidden = false;
+    stats(m.stats);
+    if (!m.today) { $('ccWhen').textContent = 'No class today. Classes run 7–11 PM, Monday to Saturday.'; return; }
+    $('ccWhen').textContent = `Today: ${t(m.today.starts_at)} – ${t(m.today.ends_at)}. Check-in opens 15 minutes before class.`;
+    if (m.today.status === 'present' || m.today.status === 'late' || m.today.status === 'excused') { done(m.today.status); return; }
+    if (m.today.open) $('ccForm').hidden = false;
+    else if (Date.now() < Date.parse(m.today.starts_at)) {
+      const opens = Date.parse(m.today.starts_at) - 15 * 60000;
+      setTimeout(() => load(), Math.max(5000, Math.min(opens - Date.now() + 2000, 2 ** 31 - 1)));
+    } else $('ccWhen').textContent = 'Today’s class has ended. See you tomorrow at 7 PM.';
+  }
+
+  $('ccForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = ($('ccCode') as HTMLInputElement).value.trim().toUpperCase();
+    if (!code) return;
+    const btn = $('ccBtn') as HTMLButtonElement; btn.disabled = true;
+    const msg = $('ccMsg'); msg.className = 'cc-msg'; msg.textContent = 'Checking…';
+    const { data, error } = await sb.schema('cbt').rpc('class_checkin', { p_code: code });
+    btn.disabled = false;
+    const r = data as { ok: boolean; status?: string; reason?: string; tries_left?: number; stats?: Stats } | null;
+    if (error || !r) { msg.className = 'cc-msg bad'; msg.textContent = 'Could not reach TECHMED. Check your connection and try again.'; return; }
+    if (r.ok) { msg.textContent = ''; done(r.status || 'present'); stats(r.stats); return; }
+    msg.className = 'cc-msg bad';
+    msg.textContent = r.reason === 'too_early' ? 'Check-in opens 15 minutes before class.'
+      : (REASONS[r.reason || ''] || 'Could not check you in.') + (r.reason === 'wrong_code' && r.tries_left != null ? ` (${r.tries_left} tries left)` : '');
+  });
+
+  load();
+</script>
