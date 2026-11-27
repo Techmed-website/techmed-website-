@@ -95,6 +95,11 @@ const PROMO_DISCOUNT_PERCENT = 0.30;
 const PROMO_START_UTC = new Date("2026-11-03T08:00:00Z").getTime();
 const PROMO_EXPIRY_UTC = new Date("2026-11-05T08:00:00Z").getTime();
 
+// Class launch offer (Nov–Dec 2026): 20% off the STANDARD price of every UTME 2027 class plan, automatic (no code),
+// until Monday 7 December 2026, 11:59 PM WAT. Mirrors web/src/lib/launchOffer.ts so the price shown is the price charged.
+const LAUNCH_OFFER_PERCENT = 0.20;
+const LAUNCH_OFFER_END_UTC = new Date("2026-12-07T22:59:59Z").getTime();
+
 const COHORT_STANDARD_PRICES: Record<string, { standardPrice: number; name: string }> = {
   "cohort-core-standard": { standardPrice: 18000, name: "TECHMED Core (3-Month Upfront)" },
   "cohort-core-earlybird": { standardPrice: 18000, name: "TECHMED Core (3-Month Upfront)" },
@@ -219,6 +224,8 @@ Deno.serve(async (req) => {
   let promoStandardPrice = 0;
   let planDiscountApplied = false;
   let planDiscountAmount = 0;
+  let launchApplied = false;
+  let launchDiscountAmount = 0;
 
   if (promo_code !== undefined && promo_code !== null && typeof promo_code === "string" && promo_code.trim().length > 0) {
     const cleanPromo = promo_code.trim().toUpperCase();
@@ -267,6 +274,13 @@ Deno.serve(async (req) => {
         if (cleanProductId.includes("core") && !cleanProductId.includes("monthly")) validatedAmount = 18000;
         if (cleanProductId.includes("mastery")) validatedAmount = 25000;
       }
+    }
+    const std = COHORT_STANDARD_PRICES[cleanProductId];
+    if (std && Date.now() <= LAUNCH_OFFER_END_UTC) {
+      promoStandardPrice = std.standardPrice;
+      launchDiscountAmount = Math.round(std.standardPrice * LAUNCH_OFFER_PERCENT);
+      validatedAmount = std.standardPrice - launchDiscountAmount;
+      launchApplied = true;
     }
   } else {
     // ---------------------------------------------------------------------
@@ -343,8 +357,8 @@ Deno.serve(async (req) => {
     ? (callback_url.includes("?") ? `${callback_url}&reference=${reference}` : `${callback_url}?reference=${reference}`)
     : defaultCallback;
 
-  const totalDiscount = promoApplied ? promoDiscountAmount : planDiscountAmount;
-  const originalPrice = promoApplied ? promoStandardPrice : product.amount;
+  const totalDiscount = promoApplied ? promoDiscountAmount : launchApplied ? launchDiscountAmount : planDiscountAmount;
+  const originalPrice = promoApplied || launchApplied ? promoStandardPrice : product.amount;
 
   let paystackData: { authorization_url?: string; access_code?: string; reference?: string };
 
@@ -373,6 +387,7 @@ Deno.serve(async (req) => {
           original_price: originalPrice,
           promo_description: promoApplied
             ? "TECHMED30 30% Promotional Discount"
+            : launchApplied ? "Class launch offer: 20% off (ends 7 Dec 2026)"
             : planDiscountApplied ? "TECHMED plan student 20% e-book discount" : null,
         },
       }),
