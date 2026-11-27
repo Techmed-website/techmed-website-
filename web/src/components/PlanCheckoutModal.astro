@@ -262,6 +262,7 @@
   import { getCurrentUser, SUPABASE_ANON_KEY } from '/src/lib/supabase.ts';
   import { trackEvent } from '/src/lib/analytics.ts';
   import { validatePromoCode, PROMO_CODE } from '/src/lib/promo.ts';
+  import { launchOfferFor, LAUNCH_OFFER_END_LABEL } from '/src/lib/launchOffer.ts';
 
   const modalBackdrop = document.getElementById('planCheckoutModalBackdrop');
   const closeBtn = document.getElementById('closePlanModalBtn');
@@ -494,11 +495,17 @@
         }
       }
     } else {
-      authoritativePrice = basePrice;
-      authoritativeOriginalPrice = baseOriginalPrice;
-      if (promoInputRow) promoInputRow.style.display = 'flex';
+      // Class launch offer: 20% off the standard price until 7 Dec (the server applies the same rule).
+      const offer = launchOfferFor(serverProductId);
+      authoritativePrice = offer ? offer.final : basePrice;
+      authoritativeOriginalPrice = offer ? offer.standard : baseOriginalPrice;
+      if (promoInputRow) promoInputRow.style.display = offer ? 'none' : 'flex';
       if (promoAppliedCard) promoAppliedCard.style.display = 'none';
-      if (planSummaryDiscountRow) planSummaryDiscountRow.style.display = 'none';
+      if (planSummaryDiscountRow) planSummaryDiscountRow.style.display = offer ? 'flex' : 'none';
+      if (offer) {
+        if (planDiscountLabel) planDiscountLabel.textContent = 'Class launch offer:';
+        if (planDiscountVal) planDiscountVal.textContent = `-₦${offer.discount.toLocaleString()} (20% off, ends ${LAUNCH_OFFER_END_LABEL})`;
+      }
     }
 
     if (planSummaryTitle) planSummaryTitle.textContent = authoritativeTitle;

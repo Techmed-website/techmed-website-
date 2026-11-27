@@ -8,6 +8,8 @@ import {
   WHY_ULTIMATE_DATA,
 } from '../lib/pricing';
 import { getContactChannels, whatsappLink } from '../lib/contact';
+import { LAUNCH_OFFER_END_UTC, LAUNCH_OFFER_END_LABEL, offerPrice } from '../lib/launchOffer';
+const naira = (n: number) => `₦${n.toLocaleString('en-NG')}`;
 
 const channels = await getContactChannels();
 const waNumber = channels.whatsappNumber || PROGRAMME_DETAILS.supportPhone;
@@ -119,59 +121,53 @@ const jsonLd = [
 
               <!-- Price Box with Early-Bird and Strikethrough Logic -->
               <div class="card-price-box">
-                {plan.id === 'core' && (
-                  isEarlyBirdActive ? (
+                <!-- Class launch offer (20% off standard) until 7 Dec; the script below switches to standard prices afterwards. -->
+                {plan.id === 'core' && (<>
+                  <div class="lo-on">
                     <div class="price-primary-row coreBillingSelector" data-period="earlybird">
-                      <span class="price-figure">₦15,000</span>
+                      <span class="price-figure">{naira(offerPrice(18000))}</span>
                       <span class="original-price-strike">₦18,000</span>
                       <span class="price-period">for 3 months upfront</span>
                     </div>
                     <div class="price-secondary-option coreBillingSelector" data-period="monthly">
-                      <span>or ₦7,000 / month</span>
+                      <span>or <s>₦7,000</s> {naira(offerPrice(7000))} / month</span>
                     </div>
-                    <div class="early-bird-callout">
-                      <span class="early-bird-tag">Early-bird offer:</span>
-                      <span class="early-bird-text">Save ₦3,000 upfront. Valid through 15 November 2026.</span>
-                    </div>
-                  ) : (
+                  </div>
+                  <div class="lo-off">
                     <div class="price-primary-row coreBillingSelector" data-period="earlybird">
                       <span class="price-figure">₦18,000</span>
                       <span class="price-period">for 3 months upfront</span>
                     </div>
-                    <div class="price-secondary-option coreBillingSelector" data-period="monthly">
-                      <span>or ₦7,000 / month</span>
-                    </div>
-                  )
-                )}
-
-                {plan.id === 'mastery' && (
-                  isEarlyBirdActive ? (
-                    <div class="price-primary-row">
-                      <span class="price-figure">₦20,000</span>
-                      <span class="original-price-strike">₦25,000</span>
-                      <span class="price-period">for 3 months</span>
-                    </div>
-                    <div class="early-bird-callout">
-                      <span class="early-bird-tag">Early-bird offer:</span>
-                      <span class="early-bird-text">Save ₦5,000 upfront. Valid through 15 November 2026.</span>
-                    </div>
-                  ) : (
-                    <div class="price-primary-row">
-                      <span class="price-figure">₦25,000</span>
-                      <span class="price-period">for 3 months</span>
-                    </div>
-                  )
-                )}
-
-                {plan.id === 'ultimate' && (
-                  <div class="price-primary-row">
+                    <div class="price-secondary-option coreBillingSelector" data-period="monthly"><span>or ₦7,000 / month</span></div>
+                  </div>
+                </>)}
+                {plan.id === 'mastery' && (<>
+                  <div class="price-primary-row lo-on">
+                    <span class="price-figure">{naira(offerPrice(25000))}</span>
+                    <span class="original-price-strike">₦25,000</span>
+                    <span class="price-period">for 3 months</span>
+                  </div>
+                  <div class="price-primary-row lo-off">
+                    <span class="price-figure">₦25,000</span>
+                    <span class="price-period">for 3 months</span>
+                  </div>
+                </>)}
+                {plan.id === 'ultimate' && (<>
+                  <div class="price-primary-row lo-on">
+                    <span class="price-figure">{naira(offerPrice(40000))}</span>
+                    <span class="original-price-strike">₦40,000</span>
+                    <span class="price-period">one-time payment</span>
+                  </div>
+                  <div class="price-primary-row lo-off">
                     <span class="price-figure">₦40,000</span>
                     <span class="price-period">one-time payment</span>
                   </div>
-                  <div class="price-coverage-note">
-                    <span>Programme coverage through UTME 2027</span>
-                  </div>
-                )}
+                  <div class="price-coverage-note"><span>Programme coverage through UTME 2027</span></div>
+                </>)}
+                <div class="early-bird-callout lo-on">
+                  <span class="early-bird-tag">20% OFF · CLASS LAUNCH OFFER</span>
+                  <span class="early-bird-text">Classes start Monday 30 November. Offer ends {LAUNCH_OFFER_END_LABEL}.</span>
+                </div>
               </div>
 
               <!-- Single Primary CTA Button per Plan (Supported IDs: pay-btn-core, pay-btn-mastery, pay-btn-ultimate) -->
@@ -412,6 +408,14 @@ const jsonLd = [
       });
     });
   </script>
+<script is:inline define:vars={{ end: LAUNCH_OFFER_END_UTC }}>
+  // Static page: after the offer deadline, show standard prices (the server stops discounting at the same moment).
+  if (Date.now() > end) document.documentElement.classList.add('lo-expired');
+</script>
+<style is:global>
+  html:not(.lo-expired) .lo-off { display: none !important; }
+  html.lo-expired .lo-on { display: none !important; }
+</style>
 </BaseLayout>
 
 <style>
