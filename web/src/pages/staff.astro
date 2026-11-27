@@ -1,0 +1,354 @@
+---
+// TECHMED staff portal: tutors, editors and the founder. Today's check-in code, the class register,
+// every paid student's attendance + practice + test performance, written reviews, and (founder only) tutor access.
+// All data comes from cbt.staff_* RPCs, which refuse anyone who is not class staff.
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Staff Portal | TECHMED" description="TECHMED staff portal for attendance, student performance and reviews." noindex>
+  <main class="st-wrap">
+    <header class="st-top">
+      <div>
+        <span class="st-tag">TECHMED STAFF</span>
+        <h1>Staff portal</h1>
+      </div>
+      <span class="st-who" id="stWho"></span>
+    </header>
+
+    <p class="st-state" id="stState">Checking your access…</p>
+
+    <div id="stApp" hidden>
+      <nav class="st-tabs" role="tablist" aria-label="Staff sections">
+        <button role="tab" class="on" data-tab="today" aria-selected="true">Today’s class</button>
+        <button role="tab" data-tab="students" aria-selected="false">Students</button>
+        <button role="tab" data-tab="team" aria-selected="false" id="stTeamTab" hidden>Team</button>
+      </nav>
+
+      <!-- TODAY -->
+      <section data-panel="today" class="st-panel">
+        <div class="st-grid">
+          <div class="st-card st-code-card">
+            <span class="st-label">Check-in code</span>
+            <div class="st-code" id="stCode">—</div>
+            <p class="st-muted" id="stWhen">No class today.</p>
+            <div class="st-actions">
+              <button class="st-btn" id="stRotate" disabled>New code</button>
+              <button class="st-btn st-ghost" id="stFull" disabled>Show full screen</button>
+            </div>
+          </div>
+          <div class="st-card st-count">
+            <span class="st-label">Checked in</span>
+            <div class="st-big"><b id="stIn">0</b><span>/ <span id="stEnrolled">0</span> enrolled</span></div>
+            <label class="st-label" for="stSession">Register for</label>
+            <select id="stSession"></select>
+          </div>
+        </div>
+        <div class="st-card">
+          <div class="st-row-head">
+            <h2>Register</h2>
+            <input id="stFilter" type="search" placeholder="Search name, email or phone" aria-label="Search the register" />
+          </div>
+          <p class="st-muted small">Students check themselves in with the code. Mark anyone the code missed: P present · L late · A absent · E excused.</p>
+          <div id="stRoster" class="st-roster"></div>
+        </div>
+      </section>
+
+      <!-- STUDENTS -->
+      <section data-panel="students" class="st-panel" hidden>
+        <div class="st-card">
+          <div class="st-row-head">
+            <h2>Paid students</h2>
+            <input id="stFilter2" type="search" placeholder="Search students" aria-label="Search students" />
+          </div>
+          <p class="st-muted small">Attendance since each student’s plan began · KAIRO questions in the last 7 days · average score on drills, challenges and mocks in the last 30 days. Tap a student for tests and reviews.</p>
+          <div class="st-table-wrap">
+            <table class="st-table">
+              <thead><tr><th>Student</th><th>Plan</th><th>Attendance</th><th>Qs 7d</th><th>Tests 30d</th><th>Last practice</th></tr></thead>
+              <tbody id="stStudents"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEAM (founder/admin) -->
+      <section data-panel="team" class="st-panel" hidden>
+        <div class="st-card">
+          <h2>Tutor accounts</h2>
+          <p class="st-muted small">Each tutor signs up at techmedng.com/register with their own email, then you add them here. Tutors see this portal only: attendance, students and reviews. They cannot see payments or edit content.</p>
+          <form id="stAddTutor" class="st-inline">
+            <input id="stTutorEmail" type="email" placeholder="tutor@email.com" required aria-label="Tutor email" />
+            <button class="st-btn" type="submit">Give tutor access</button>
+          </form>
+          <p class="st-msg" id="stTeamMsg" role="status" aria-live="polite"></p>
+          <div id="stTeam" class="st-roster"></div>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="stDlg" class="st-dlg">
+      <form method="dialog"><button class="st-x" aria-label="Close">×</button></form>
+      <div id="stDlgBody"></div>
+    </dialog>
+    <div id="stFullCode" class="st-fullcode" hidden><div><span>Check-in code</span><b id="stFullCodeVal">—</b><small>Go to techmedng.com/dashboard → Class check-in</small></div></div>
+  </main>
+</BaseLayout>
+
+<style>
+  .st-wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; color: var(--text); }
+  .st-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .st-top h1 { margin: 4px 0 0; font-size: 28px; }
+  .st-tag, .st-label { font-size: 12px; font-weight: 800; letter-spacing: .14em; color: var(--color-gold, #C9A227); text-transform: uppercase; }
+  .st-who { color: var(--text-light); font-size: 14px; }
+  .st-state { color: var(--text-light); }
+  .st-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
+  .st-tabs button { border: 1px solid var(--border); background: transparent; color: var(--text); padding: 9px 14px; border-radius: 999px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+  .st-tabs button.on { background: var(--color-gold, #C9A227); color: #012748; border-color: transparent; }
+  .st-panel { display: grid; gap: 14px; }
+  .st-panel[hidden], [hidden] { display: none !important; }
+  .st-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .st-grid { grid-template-columns: 1fr; } }
+  .st-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+  :global(html[data-theme='light']) .st-card { background: #fff; }
+  .st-card h2 { margin: 0; font-size: 18px; }
+  .st-code { font-size: clamp(40px, 9vw, 64px); font-weight: 800; letter-spacing: .2em; color: var(--color-gold, #C9A227); font-variant-numeric: tabular-nums; }
+  .st-muted { color: var(--text-light); margin: 0; }
+  .small { font-size: 13px; }
+  .st-actions, .st-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+  .st-inline input { flex: 1; min-width: 200px; }
+  .st-btn { background: var(--color-gold, #C9A227); color: #012748; border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 800; cursor: pointer; }
+  .st-btn:disabled { opacity: .5; cursor: default; }
+  .st-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .st-big { display: flex; align-items: baseline; gap: 6px; }
+  .st-big b { font-size: 44px; color: var(--text); }
+  .st-big span { color: var(--text-light); }
+  input, select, textarea { font: inherit; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-dark, #001D36); color: var(--text); }
+  :global(html[data-theme='light']) input, :global(html[data-theme='light']) select, :global(html[data-theme='light']) textarea { background: #fff; color: #012748; }
+  .st-row-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .st-row-head input { min-width: 220px; flex: 0 1 320px; }
+  .st-roster { display: grid; }
+  .st-r { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+  .st-r b { display: block; }
+  .st-r small { color: var(--text-light); word-break: break-all; }
+  .st-marks { display: flex; gap: 4px; }
+  .st-marks button { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--border); background: transparent; color: var(--text); font-weight: 800; cursor: pointer; }
+  .st-marks button.on[data-s='present'] { background: #17714d; border-color: #17714d; color: #fff; }
+  .st-marks button.on[data-s='late'] { background: #C9A227; border-color: #C9A227; color: #012748; }
+  .st-marks button.on[data-s='absent'] { background: #b23434; border-color: #b23434; color: #fff; }
+  .st-marks button.on[data-s='excused'] { background: #6C87A0; border-color: #6C87A0; color: #fff; }
+  .st-pill { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-light); margin-left: 6px; }
+  .st-table-wrap { overflow-x: auto; }
+  .st-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .st-table th { text-align: left; font-size: 12px; color: var(--text-light); font-weight: 700; padding: 8px 6px; white-space: nowrap; }
+  .st-table td { padding: 10px 6px; border-top: 1px solid var(--border); vertical-align: top; }
+  .st-table tbody tr { cursor: pointer; }
+  .st-table tbody tr:hover { background: rgba(201, 162, 39, .08); }
+  .st-low { color: #f19999; font-weight: 700; }
+  :global(html[data-theme='light']) .st-low { color: #b23434; }
+  .st-msg { margin: 0; min-height: 1.2em; font-size: 14px; }
+  .st-dlg { width: min(640px, calc(100vw - 32px)); max-height: 86vh; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-raised, #0B3A5C); color: var(--text); padding: 18px; }
+  :global(html[data-theme='light']) .st-dlg { background: #fff; color: #012748; }
+  .st-dlg::backdrop { background: rgba(0, 10, 20, .6); }
+  .st-x { float: right; background: none; border: 0; font-size: 26px; color: inherit; cursor: pointer; }
+  .st-dlg h3 { margin: 0 0 4px; }
+  .st-dlg textarea { width: 100%; min-height: 90px; box-sizing: border-box; }
+  .st-rev { border-top: 1px solid var(--border); padding: 8px 0; white-space: pre-wrap; }
+  .st-rev small { display: block; color: var(--text-light); }
+  .st-fullcode { position: fixed; inset: 0; z-index: 1000; background: #012748; display: grid; place-items: center; text-align: center; cursor: pointer; }
+  .st-fullcode div { display: grid; gap: 12px; color: #fff; }
+  .st-fullcode span { letter-spacing: .2em; color: #C9A227; font-weight: 800; }
+  .st-fullcode b { font-size: clamp(64px, 20vw, 200px); letter-spacing: .15em; }
+  .st-fullcode small { color: #98B0C4; font-size: 18px; }
+</style>
+
+<script>
+  import { getSupabase } from '../lib/supabase';
+  const sb = getSupabase();
+  const db = sb.schema('cbt');
+  const $ = (id: string) => document.getElementById(id)!;
+  const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  const tm = (iso: string) => new Date(iso).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Lagos' });
+  const dt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Africa/Lagos' });
+  const dd = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const wa = (p?: string | null) => { const d = String(p || '').replace(/\D/g, ''); return d ? `https://wa.me/${d.startsWith('0') ? '234' + d.slice(1) : d}` : ''; };
+
+  type Session = { id: string; date: string; starts_at: string; ends_at: string; code: string };
+  type Today = { role: string; session: Session | null; checked_in: number; enrolled: number; sessions: { id: string; date: string; title: string; present: number }[] };
+  type RosterRow = { user_id: string; name: string | null; email: string | null; phone: string | null; plan: string | null; status: string | null; method: string | null; at: string | null };
+  type Att = { held: number; attended: number; late: number; rate: number | null; recent: { date: string; status: string }[] };
+  type Student = { user_id: string; name: string | null; email: string | null; phone: string | null; plan: string | null; attendance: Att; questions_7d: number;
+    test_avg_30d: number | null; last_practice: string | null; tests: { at: string; title: string; type: string; score: number; total: number }[]; last_review: { body: string; at: string } | null };
+
+  let today: Today | null = null;
+  let roster: RosterRow[] = [];
+  let students: Student[] = [];
+  let sessionId: string | null = null;
+
+  function fail(msg: string) { $('stState').textContent = msg; $('stState').hidden = false; $('stApp').hidden = true; }
+
+  async function boot() {
+    const { data: s } = await sb.auth.getSession();
+    if (!s.session || s.session.user.is_anonymous) {
+      $('stState').innerHTML = 'Sign in with your staff account to continue. <a href="/login?redirect=/staff">Sign in</a>';
+      return;
+    }
+    $('stWho').textContent = s.session.user.email || '';
+    const { data: ok } = await db.rpc('is_class_staff');
+    if (!ok) { fail('This account does not have staff access. Ask the founder to add your email as a tutor.'); return; }
+    $('stState').hidden = true; $('stApp').hidden = false;
+    await loadToday();
+  }
+
+  async function loadToday() {
+    const { data, error } = await db.rpc('staff_today');
+    if (error) { fail(error.message); return; }
+    today = data as Today;
+    $('stTeamTab').hidden = today.role !== 'admin';
+    const s = today.session;
+    $('stCode').textContent = s ? s.code : '—';
+    $('stFullCodeVal').textContent = s ? s.code : '—';
+    $('stWhen').textContent = s ? `${dd(s.date)} · ${tm(s.starts_at)} – ${tm(s.ends_at)} · students can check in from 15 minutes before class.` : 'No class today (classes run Monday to Saturday).';
+    ($('stRotate') as HTMLButtonElement).disabled = !s;
+    ($('stFull') as HTMLButtonElement).disabled = !s;
+    $('stIn').textContent = String(today.checked_in ?? 0);
+    $('stEnrolled').textContent = String(today.enrolled ?? 0);
+    const sel = $('stSession') as HTMLSelectElement;
+    sel.innerHTML = today.sessions.map((x) => `<option value="${x.id}">${esc(dd(x.date))} · ${x.present} present</option>`).join('') || '<option value="">No classes yet</option>';
+    sessionId = sessionId && today.sessions.some((x) => x.id === sessionId) ? sessionId : (s?.id ?? today.sessions[0]?.id ?? null);
+    if (sessionId) sel.value = sessionId;
+    await loadRoster();
+  }
+
+  async function loadRoster() {
+    if (!sessionId) { $('stRoster').innerHTML = '<p class="st-muted">The register appears once the first class is created (from 6 PM on class days).</p>'; return; }
+    const { data, error } = await db.rpc('staff_roster', { p_session: sessionId });
+    if (error) { $('stRoster').textContent = error.message; return; }
+    roster = (data ?? []) as RosterRow[];
+    drawRoster();
+  }
+
+  function drawRoster() {
+    const q = ($('stFilter') as HTMLInputElement).value.trim().toLowerCase();
+    const rows = roster.filter((r) => !q || [r.name, r.email, r.phone].some((v) => String(v || '').toLowerCase().includes(q)));
+    $('stRoster').innerHTML = rows.map((r) => `
+      <div class="st-r" data-u="${r.user_id}">
+        <div><b>${esc(r.name || r.email || 'Student')}${r.plan ? `<span class="st-pill">${esc(r.plan)}</span>` : ''}</b>
+          <small>${esc(r.phone || '')}${r.phone && r.email ? ' · ' : ''}${esc(r.email || '')}${r.at ? ` · ${r.method === 'code' ? 'code' : 'marked'} ${tm(r.at)}` : ''}</small></div>
+        <div class="st-marks">${(['present', 'late', 'absent', 'excused'] as const).map((st) =>
+          `<button data-s="${st}" class="${r.status === st ? 'on' : ''}" title="${st}" aria-label="Mark ${esc(r.name || 'student')} ${st}" aria-pressed="${r.status === st}">${st[0].toUpperCase()}</button>`).join('')}</div>
+      </div>`).join('') || '<p class="st-muted">No students match.</p>';
+  }
+
+  $('stRoster').addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest('button[data-s]') as HTMLButtonElement | null;
+    if (!b || !sessionId) return;
+    const u = b.closest('[data-u]')!.getAttribute('data-u')!;
+    const st = b.dataset.s!;
+    b.disabled = true;
+    const { error } = await db.rpc('staff_mark', { p_session: sessionId, p_user: u, p_status: st });
+    b.disabled = false;
+    if (error) { alert(error.message); return; }
+    const r = roster.find((x) => x.user_id === u); if (r) { r.status = st; r.method = 'staff'; r.at = new Date().toISOString(); }
+    drawRoster();
+    if (today && sessionId === today.session?.id) $('stIn').textContent = String(roster.filter((x) => x.status === 'present' || x.status === 'late').length);
+  });
+  $('stFilter').addEventListener('input', drawRoster);
+  $('stSession').addEventListener('change', (e) => { sessionId = (e.target as HTMLSelectElement).value || null; loadRoster(); });
+  $('stRotate').addEventListener('click', async () => {
+    if (!today?.session || !confirm('Make a new code? Students who have not checked in will need the new one.')) return;
+    const { data, error } = await db.rpc('staff_new_code', { p_session: today.session.id });
+    if (error) { alert(error.message); return; }
+    today.session.code = String(data); $('stCode').textContent = String(data); $('stFullCodeVal').textContent = String(data);
+  });
+  $('stFull').addEventListener('click', () => { $('stFullCode').hidden = false; document.documentElement.requestFullscreen?.().catch(() => {}); });
+  $('stFullCode').addEventListener('click', () => { $('stFullCode').hidden = true; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); });
+
+  // Tabs
+  document.querySelectorAll<HTMLButtonElement>('.st-tabs button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll<HTMLButtonElement>('.st-tabs button').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
+    document.querySelectorAll<HTMLElement>('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab; });
+    if (b.dataset.tab === 'students' && !students.length) loadStudents();
+    if (b.dataset.tab === 'team') loadTeam();
+    if (b.dataset.tab === 'today') loadToday();
+  }));
+
+  async function loadStudents() {
+    $('stStudents').innerHTML = '<tr><td colspan="6" class="st-muted">Loading…</td></tr>';
+    const { data, error } = await db.rpc('staff_students');
+    if (error) { $('stStudents').innerHTML = `<tr><td colspan="6">${esc(error.message)}</td></tr>`; return; }
+    students = (data ?? []) as Student[];
+    drawStudents();
+  }
+  function drawStudents() {
+    const q = ($('stFilter2') as HTMLInputElement).value.trim().toLowerCase();
+    const rows = students.filter((r) => !q || [r.name, r.email, r.phone].some((v) => String(v || '').toLowerCase().includes(q)));
+    $('stStudents').innerHTML = rows.map((s) => {
+      const a = s.attendance;
+      return `<tr data-u="${s.user_id}">
+        <td><b>${esc(s.name || s.email || 'Student')}</b><br><small class="st-muted">${esc(s.phone || s.email || '')}</small></td>
+        <td>${esc(s.plan || '')}</td>
+        <td class="${a.rate != null && a.rate < 70 ? 'st-low' : ''}">${a.held ? `${a.attended}/${a.held} (${a.rate ?? 0}%)` : '—'}</td>
+        <td>${s.questions_7d}</td>
+        <td class="${s.test_avg_30d != null && s.test_avg_30d < 50 ? 'st-low' : ''}">${s.test_avg_30d != null ? `${s.test_avg_30d}%` : '—'}</td>
+        <td>${s.last_practice ? dt(s.last_practice) : 'never'}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="st-muted">No paid students yet.</td></tr>';
+  }
+  $('stFilter2').addEventListener('input', drawStudents);
+  $('stStudents').addEventListener('click', (e) => {
+    const tr = (e.target as HTMLElement).closest('tr[data-u]'); if (!tr) return;
+    const s = students.find((x) => x.user_id === tr.getAttribute('data-u')); if (s) openStudent(s);
+  });
+
+  async function openStudent(s: Student) {
+    const a = s.attendance;
+    const link = wa(s.phone);
+    $('stDlgBody').innerHTML = `
+      <h3>${esc(s.name || s.email || 'Student')}</h3>
+      <p class="st-muted small">${esc(s.plan || '')} · ${esc(s.email || '')}${s.phone ? ` · ${esc(s.phone)}` : ''}${link ? ` · <a href="${link}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</p>
+      <p><b>Attendance:</b> ${a.held ? `${a.attended} of ${a.held} classes (${a.rate ?? 0}%), ${a.late} late` : 'no classes yet'}</p>
+      <p class="small">${a.recent.map((r) => `${esc(dd(r.date))}: ${esc(r.status)}`).join(' · ')}</p>
+      <p><b>Tests (drills, challenges, mocks):</b></p>
+      <div class="small">${s.tests.length ? s.tests.map((t) => `<div class="st-rev">${esc(t.title)} <small>${esc(t.type || '')} · ${dt(t.at)} · ${t.score}/${t.total} (${t.total ? Math.round(100 * t.score / t.total) : 0}%)</small></div>`).join('') : '<p class="st-muted">No tests taken yet.</p>'}</div>
+      <p><b>Reviews</b></p>
+      <form id="stRevForm" class="st-inline" style="display:grid"><textarea id="stRevBody" placeholder="Write a review: strengths, what to fix, next steps…" required maxlength="2000"></textarea><button class="st-btn" type="submit">Save review</button></form>
+      <div id="stRevs" class="small"><p class="st-muted">Loading reviews…</p></div>`;
+    ($('stDlg') as HTMLDialogElement).showModal();
+    const drawRevs = (list: { body: string; at: string; by: string | null }[]) => {
+      $('stRevs').innerHTML = list.map((r) => `<div class="st-rev">${esc(r.body)}<small>${esc(r.by || 'Staff')} · ${dt(r.at)}</small></div>`).join('') || '<p class="st-muted">No reviews yet.</p>';
+    };
+    const { data } = await db.rpc('staff_reviews', { p_student: s.user_id });
+    drawRevs((data ?? []) as never);
+    $('stRevForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = ($('stRevBody') as HTMLTextAreaElement).value.trim(); if (!body) return;
+      const { data: d2, error } = await db.rpc('staff_add_review', { p_student: s.user_id, p_body: body });
+      if (error) { alert(error.message); return; }
+      ($('stRevBody') as HTMLTextAreaElement).value = '';
+      drawRevs((d2 ?? []) as never);
+      s.last_review = { body, at: new Date().toISOString() };
+    });
+  }
+
+  async function loadTeam() {
+    const { data, error } = await db.rpc('admin_staff_list');
+    if (error) { $('stTeam').textContent = error.message; return; }
+    const list = (data ?? []) as { user_id: string; name: string | null; email: string | null; role: string }[];
+    $('stTeam').innerHTML = list.map((m) => `<div class="st-r"><div><b>${esc(m.name || m.email)}<span class="st-pill">${esc(m.role)}</span></b><small>${esc(m.email || '')}</small></div>
+      ${m.role === 'tutor' ? `<button class="st-btn st-ghost" data-remove="${esc(m.email || '')}">Remove</button>` : ''}</div>`).join('') || '<p class="st-muted">No staff yet.</p>';
+  }
+  $('stTeam').addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest('button[data-remove]') as HTMLButtonElement | null; if (!b) return;
+    if (!confirm(`Remove tutor access for ${b.dataset.remove}?`)) return;
+    const { data, error } = await db.rpc('admin_set_tutor', { p_email: b.dataset.remove, p_tutor: false });
+    $('stTeamMsg').textContent = error ? error.message : (data as { ok: boolean; reason?: string }).ok ? 'Tutor access removed.' : String((data as { reason?: string }).reason);
+    loadTeam();
+  });
+  $('stAddTutor').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = ($('stTutorEmail') as HTMLInputElement).value.trim();
+    const { data, error } = await db.rpc('admin_set_tutor', { p_email: email, p_tutor: true });
+    const r = data as { ok: boolean; reason?: string } | null;
+    $('stTeamMsg').textContent = error ? error.message : r?.ok ? `${email} is now a tutor. They can open techmedng.com/staff after signing in.` : String(r?.reason || 'Could not add tutor.');
+    if (r?.ok) { ($('stTutorEmail') as HTMLInputElement).value = ''; loadTeam(); }
+  });
+
+  boot();
+</script>

@@ -3,6 +3,7 @@ import QuizHub from '../components/QuizHub.astro';
 import StudyPlanner from '../components/StudyPlanner.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import StudentHubNav from '../components/StudentHubNav.astro';
+import ClassCheckin from '../components/ClassCheckin.astro';
 import {
   PROGRAMME_META,
   CLASSROOM_LINKS,
@@ -126,6 +127,8 @@ const description = 'Official TECHMED UTME 2027 Paid Student Dashboard: enrolled
             </button>
           </nav>
         </div>
+
+        <ClassCheckin />
 
         <!-- 1. Official Programme Schedule — programme dates and duration -->
         <section class="programme-overview-card dashboard-view-section" data-section-view="overview">

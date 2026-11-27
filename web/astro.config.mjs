@@ -36,6 +36,7 @@ export default defineConfig({
         const path = new URL(page).pathname;
         const excluded = [
           /^\/dashboard\/?$/,
+          /^\/staff\/?$/,
           /^\/login\/?$/,
           /^\/register\/?$/,
           /^\/account\//,
